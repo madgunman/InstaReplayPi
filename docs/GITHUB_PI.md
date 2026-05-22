@@ -25,7 +25,7 @@ INSTANT_REPLAY_USER=admin INSTANT_REPLAY_TAG=v0.1.0 \
   curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
 ```
 
-Use **`v0.1.1`** or newer (fixes crash loop / `status=11/SEGV` on boot).
+Use **`v0.1.2`** or newer (fixes crash loop / `status=11/SEGV` on boot). **Do not use v0.1.1** — that tag was built before the winit fix was merged.
 
 ## Fix existing broken install (crash loop / no HTTP)
 
@@ -33,7 +33,7 @@ Use **`v0.1.1`** or newer (fixes crash loop / `status=11/SEGV` on boot).
 curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
 ```
 
-Or only re-apply systemd (needs **v0.1.1+** binary for the winit fix):
+Or only re-apply systemd (needs **v0.1.2+** binary for the winit fix):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/enable-appliance-autostart.sh -o /tmp/e.sh
@@ -43,7 +43,7 @@ sudo /tmp/e.sh admin
 
 **Requirements:** Desktop **Autologin** for your user (so `DISPLAY=:0` exists). The engine unit starts after `graphical.target`.
 
-If `journalctl` shows `winit` / “event loop outside of the main thread”, upgrade to **v0.1.1+** and re-run the installer.
+If `journalctl` shows `winit` / “event loop outside of the main thread”, upgrade to **v0.1.2+** and re-run the installer.
 
 ## After install
 
