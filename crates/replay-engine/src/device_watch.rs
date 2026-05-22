@@ -1,24 +1,54 @@
-//! Polls capture device list; notifies when the configured device disappears.
+//! Polls capture devices; signal loss while live, autostart when idle and hardware appears.
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use replay_core::fsm::ReplayState;
-use tracing::warn;
+use tracing::{info, warn};
 
+use crate::capture_select;
 use crate::controller::EngineController;
+use crate::control_api::ControlApi;
 use crate::devices::list_devices;
 
-pub fn spawn_device_watch(controller: Arc<EngineController>) {
+pub fn spawn_device_watch(controller: Arc<EngineController>, test_mode: bool) {
+    let api = ControlApi::new(controller.clone());
     tokio::spawn(async move {
         let mut device_missing = false;
+        let mut last_autostart_attempt = std::time::Instant::now()
+            - Duration::from_secs(10);
         loop {
             tokio::time::sleep(Duration::from_secs(3)).await;
-            if controller.test_mode() {
+            if test_mode {
                 continue;
             }
+
             let cfg = controller.config().await;
-            let device_id = cfg.input.device_id;
+            let device_id = cfg.input.device_id.clone();
+
+            if !controller.capture_running() {
+                device_missing = false;
+                let state = controller.fsm_state().await;
+                if matches!(
+                    state,
+                    ReplayState::Starting
+                        | ReplayState::NoSignal
+                        | ReplayState::ErrorRecovery
+                ) && last_autostart_attempt.elapsed() >= Duration::from_secs(5)
+                {
+                    if capture_select::discover_capture_devices().is_empty() {
+                        last_autostart_attempt = std::time::Instant::now();
+                        continue;
+                    }
+                    last_autostart_attempt = std::time::Instant::now();
+                    info!("Capture device available — attempting autostart");
+                    if let Err(e) = api.start_live_from_config(&cfg).await {
+                        warn!(error = %e, "Hotplug autostart failed");
+                    }
+                }
+                continue;
+            }
+
             if device_id.is_empty() || device_id == "test" {
                 continue;
             }
@@ -38,7 +68,7 @@ pub fn spawn_device_watch(controller: Arc<EngineController>) {
                 controller.signal_lost_notify();
             } else if present && device_missing {
                 device_missing = false;
-                tracing::info!(device_id = %device_id, "Capture device reconnected");
+                info!(device_id = %device_id, "Capture device reconnected");
                 controller.signal_restored_notify();
             }
         }

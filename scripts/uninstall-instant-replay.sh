@@ -54,5 +54,5 @@ Instant Replay uninstalled.
   Kept: /var/lib/instant-replay (unless INSTANT_REPLAY_PURGE_DATA=1)
 
 Reinstall:
-  INSTANT_REPLAY_TAG=v0.2.1 curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
+  INSTANT_REPLAY_TAG=v0.3.0 curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
 EOF

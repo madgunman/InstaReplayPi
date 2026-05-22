@@ -1,15 +1,16 @@
 # Example Pi appliance config — install to /etc/instant-replay/config.toml
 
 [input]
-device_id = "v4l2:/dev/video0"
-resolution = "1920x1080"
-fps = 50
+device_id = "auto"
+resolution = "auto"
+fps = 0
 pixel_format = "auto"
 
 [output]
 display_id = 0
 fullscreen = true
 show_status_overlay = false
+auto_display = true
 
 [replay]
 buffer_seconds = 20
@@ -39,3 +40,5 @@ display_id = 0
 width = 800
 height = 480
 fullscreen = false
+setup_pin = "0000"
+setup_unlock_seconds = 600

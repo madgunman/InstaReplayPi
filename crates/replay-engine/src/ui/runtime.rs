@@ -15,6 +15,7 @@ use winit::window::WindowId;
 
 use crate::controller::StatusSnapshot;
 use crate::ui::operator_shell::{OperatorCmd, OperatorShell};
+use crate::ui::setup_panel::SetupUiState;
 use crate::ui::program_window::ProgramWindowState;
 
 pub enum ProgramRequest {
@@ -37,7 +38,10 @@ pub struct ProgramOutputHandle {
 pub struct UiSpawnConfig {
     pub operator: Option<OperatorConfig>,
     pub status: Arc<RwLock<StatusSnapshot>>,
+    pub setup: Arc<RwLock<SetupUiState>>,
+    pub toast: Arc<std::sync::Mutex<Option<(String, bool, std::time::Instant)>>>,
     pub cmd_tx: Option<mpsc::Sender<OperatorCmd>>,
+    pub test_mode: bool,
 }
 
 impl ProgramOutputHandle {
@@ -59,7 +63,10 @@ impl ProgramOutputHandle {
         Self::spawn_ui(UiSpawnConfig {
             operator: None,
             status: Arc::new(RwLock::new(StatusSnapshot::default_offline())),
+            setup: Arc::new(RwLock::new(SetupUiState::new())),
+            toast: Arc::new(std::sync::Mutex::new(None)),
             cmd_tx: None,
+            test_mode: true,
         })
     }
 
@@ -110,7 +117,14 @@ struct UiApp {
 impl UiApp {
     fn new(rx: Receiver<ProgramRequest>, config: UiSpawnConfig) -> Self {
         let operator = config.operator.zip(config.cmd_tx).map(|(op, cmd_tx)| {
-            OperatorShell::new(op, config.status, cmd_tx)
+            OperatorShell::new(
+                op,
+                config.status,
+                config.setup,
+                config.toast,
+                cmd_tx,
+                config.test_mode,
+            )
         });
         Self {
             rx,

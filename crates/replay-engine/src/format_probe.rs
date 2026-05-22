@@ -30,8 +30,8 @@ pub fn probe_formats(device_id: &str) -> Vec<VideoFormat> {
 
     let caps = match parsed {
         ParsedDevice::Test => return test_pattern_formats(),
+        ParsedDevice::Auto | ParsedDevice::Default => return preferred_fallback_formats(),
         ParsedDevice::V4l2 { path } => probe_element_caps("v4l2src", 0, Some(path)),
-        ParsedDevice::Default => probe_element_caps("v4l2src", 0, Some("/dev/video0".into())),
     };
 
     let mut formats = caps.map(|c| caps_to_formats(&c)).unwrap_or_default();

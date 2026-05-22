@@ -1,6 +1,6 @@
 use replay_core::types::{VideoDevice, VideoFormat};
 
-use crate::device_monitor;
+use crate::capture_select;
 use crate::format_probe;
 
 #[derive(Debug, Clone)]
@@ -13,6 +13,7 @@ pub struct CaptureDevice {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParsedDevice {
     Test,
+    Auto,
     V4l2 { path: String },
     Default,
 }
@@ -21,8 +22,12 @@ pub fn parse_device_id(device_id: &str) -> ParsedDevice {
     if device_id == "test" {
         return ParsedDevice::Test;
     }
+    let d = device_id.trim().to_lowercase();
+    if d == "auto" {
+        return ParsedDevice::Auto;
+    }
     if device_id == "default" || device_id.is_empty() {
-        return ParsedDevice::Default;
+        return ParsedDevice::Auto;
     }
     if let Some(path) = device_id.strip_prefix("v4l2:") {
         return ParsedDevice::V4l2 {
@@ -48,7 +53,7 @@ pub fn list_devices(test_mode: bool) -> Vec<CaptureDevice> {
     });
 
     if !test_mode {
-        devices.extend(device_monitor::discover_capture_devices());
+        devices.extend(capture_select::discover_capture_devices());
     }
 
     if devices.len() == 1 {
@@ -77,8 +82,16 @@ pub fn live_start_error_hint(raw: &str) -> String {
     let lower = raw.to_lowercase();
     if lower.contains("permission") || lower.contains("denied") {
         return format!(
-            "{raw}\n\nCheck UVC device permissions and that /dev/video0 exists (groups: video)."
+            "{raw}\n\nCheck UVC device permissions (groups: video) and unlock Setup to pick the camera."
         );
+    }
+    if lower.contains("not-negotiated") || lower.contains("negotiat") {
+        return format!(
+            "{raw}\n\nTry MJPEG, 1280x720 @ 30, or another device in Setup (PIN / long-press banner)."
+        );
+    }
+    if lower.contains("no usb capture") || lower.contains("no capture device") {
+        return format!("{raw}\n\nConnect a webcam or HDMI capture card on USB 3, then Refresh in Setup.");
     }
     raw.to_string()
 }

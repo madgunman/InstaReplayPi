@@ -4,7 +4,7 @@ use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
-use egui::{Color32, RichText, Rounding};
+use egui::{Color32, RichText, Rounding, Sense};
 use replay_core::config::OperatorConfig;
 use replay_core::fsm::ReplayState;
 use tracing::warn;
@@ -15,6 +15,9 @@ use winit::window::{Fullscreen, WindowAttributes};
 use crate::controller::StatusSnapshot;
 use crate::ui::gates::{can_clear_mark, can_mark, can_replay};
 use crate::ui::operator_gl::OperatorGl;
+use crate::ui::setup_panel::{
+    handle_banner_press, paint_pin_dialog, paint_setup_controls, SetupUiState,
+};
 
 const TOAST_DURATION: Duration = Duration::from_secs(3);
 
@@ -25,6 +28,9 @@ pub enum OperatorCmd {
     ReplayLast,
     ReturnLive,
     ClearMark,
+    ApplySetup,
+    RefreshSetup,
+    LockSetup,
 }
 
 pub struct OperatorShell {
@@ -32,8 +38,10 @@ pub struct OperatorShell {
     pub gl: Option<OperatorGl>,
     pub window_id: Option<winit::window::WindowId>,
     pub status: Arc<RwLock<StatusSnapshot>>,
+    pub setup: Arc<RwLock<SetupUiState>>,
     pub toast: Arc<Mutex<Option<(String, bool, Instant)>>>,
     pub cmd_tx: Sender<OperatorCmd>,
+    pub test_mode: bool,
     pub resumed: bool,
 }
 
@@ -41,15 +49,20 @@ impl OperatorShell {
     pub fn new(
         config: OperatorConfig,
         status: Arc<RwLock<StatusSnapshot>>,
+        setup: Arc<RwLock<SetupUiState>>,
+        toast: Arc<Mutex<Option<(String, bool, Instant)>>>,
         cmd_tx: Sender<OperatorCmd>,
+        test_mode: bool,
     ) -> Self {
         Self {
             config,
             gl: None,
             window_id: None,
             status,
-            toast: Arc::new(Mutex::new(None)),
+            setup,
+            toast,
             cmd_tx,
+            test_mode,
             resumed: false,
         }
     }
@@ -133,8 +146,22 @@ impl OperatorShell {
         });
         let cmd_tx = self.cmd_tx.clone();
         let toast_tx = self.toast.clone();
+        let op_cfg = self.config.clone();
+        let setup = self.setup.clone();
+        let test_mode = self.test_mode;
         gl.paint(move |ctx| {
-            paint_operator_ui(ctx, &status, toast.clone(), &cmd_tx, toast_tx.clone());
+            let mut setup_guard = setup.write().unwrap_or_else(|e| e.into_inner());
+            paint_operator_ui(
+                ctx,
+                &status,
+                toast.clone(),
+                &cmd_tx,
+                toast_tx.clone(),
+                &op_cfg,
+                &mut setup_guard,
+                test_mode,
+            );
+            paint_pin_dialog(ctx, &mut setup_guard, &op_cfg, test_mode);
         });
     }
 }
@@ -145,10 +172,17 @@ fn paint_operator_ui(
     toast: Option<(String, bool)>,
     cmd_tx: &Sender<OperatorCmd>,
     toast_tx: Arc<Mutex<Option<(String, bool, Instant)>>>,
+    op_cfg: &OperatorConfig,
+    setup: &mut SetupUiState,
+    test_mode: bool,
 ) {
     let (banner_bg, banner_text) = state_colors(status.state);
 
     egui::TopBottomPanel::top("banner").show(ctx, |ui| {
+        let rect = ui.max_rect();
+        let response = ui.interact(rect, ui.id().with("banner_press"), Sense::click());
+        handle_banner_press(setup, op_cfg, response.is_pointer_button_down_on(), test_mode);
+
         egui::Frame::default()
             .fill(banner_bg)
             .inner_margin(12.0)
@@ -170,14 +204,32 @@ fn paint_operator_ui(
                         }
                     );
                     ui.label(RichText::new(detail).size(14.0).color(Color32::WHITE));
+                    if !setup.is_unlocked() {
+                        ui.label(
+                            RichText::new("Hold banner 3s or Unlock setup for technician")
+                                .size(11.0)
+                                .color(Color32::LIGHT_GRAY),
+                        );
+                    }
                 });
             });
     });
 
+    egui::TopBottomPanel::bottom("setup_panel")
+        .max_height(220.0)
+        .show(ctx, |ui| {
+            egui::ScrollArea::vertical()
+                .max_height(200.0)
+                .show(ui, |ui| {
+                    paint_setup_controls(ui, setup, op_cfg, cmd_tx, toast_tx.clone(), test_mode);
+                });
+        });
+
     egui::CentralPanel::default().show(ctx, |ui| {
         ui.style_mut().spacing.button_padding = egui::vec2(16.0, 20.0);
         let btn_w = (ui.available_width() / 2.0 - 8.0).max(120.0);
-        let btn_size = egui::vec2(btn_w, 72.0);
+        let btn_h = if setup.is_unlocked() { 56.0 } else { 72.0 };
+        let btn_size = egui::vec2(btn_w, btn_h);
 
         ui.columns(2, |cols| {
             if cols[0]
@@ -245,16 +297,33 @@ fn paint_operator_ui(
     }
 }
 
-fn send_cmd(
+pub fn send_cmd_with_feedback(
     cmd_tx: &Sender<OperatorCmd>,
     toast: Arc<Mutex<Option<(String, bool, Instant)>>>,
     cmd: OperatorCmd,
+    pending_msg: &str,
 ) {
     if cmd_tx.send(cmd).is_err() {
         if let Ok(mut t) = toast.lock() {
             *t = Some(("Engine stopped".into(), true, Instant::now()));
         }
+    } else if let Ok(mut t) = toast.lock() {
+        *t = Some((pending_msg.into(), false, Instant::now()));
     }
+}
+
+pub fn show_toast(toast: &Arc<Mutex<Option<(String, bool, Instant)>>>, msg: String, is_err: bool) {
+    if let Ok(mut t) = toast.lock() {
+        *t = Some((msg, is_err, Instant::now()));
+    }
+}
+
+fn send_cmd(
+    cmd_tx: &Sender<OperatorCmd>,
+    toast: Arc<Mutex<Option<(String, bool, Instant)>>>,
+    cmd: OperatorCmd,
+) {
+    send_cmd_with_feedback(cmd_tx, toast, cmd, "");
 }
 
 fn state_colors(state: ReplayState) -> (Color32, Color32) {

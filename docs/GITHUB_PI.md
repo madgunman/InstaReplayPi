@@ -20,7 +20,7 @@ Then set **Desktop Autologin** → your user → `sudo reboot`.
 ### Options
 
 ```bash
-INSTANT_REPLAY_USER=admin INSTANT_REPLAY_TAG=v0.2.1 \
+INSTANT_REPLAY_USER=admin INSTANT_REPLAY_TAG=v0.3.0 \
   curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
 ```
 
@@ -28,7 +28,7 @@ INSTANT_REPLAY_USER=admin INSTANT_REPLAY_TAG=v0.2.1 \
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/uninstall-instant-replay.sh | bash
-INSTANT_REPLAY_USER=admin INSTANT_REPLAY_TAG=v0.2.1 \
+INSTANT_REPLAY_USER=admin INSTANT_REPLAY_TAG=v0.3.0 \
   curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
 sudo reboot
 ```
@@ -36,7 +36,7 @@ sudo reboot
 ## Fix existing broken install
 
 ```bash
-INSTANT_REPLAY_USER=admin INSTANT_REPLAY_TAG=v0.2.1 \
+INSTANT_REPLAY_USER=admin INSTANT_REPLAY_TAG=v0.3.0 \
   curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
 ```
 

@@ -1,4 +1,5 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
+use std::time::Instant;
 
 use clap::Parser;
 use replay_core::config::AppConfig;
@@ -7,7 +8,7 @@ use replay_engine::controller::{EngineController, StatusSnapshot};
 use replay_engine::hotkeys;
 use replay_engine::logging;
 use replay_engine::program_output::{should_use_headless, ProgramOutputHandle, UiSpawnConfig};
-use replay_engine::ui::OperatorCmd;
+use replay_engine::ui::{show_toast, OperatorCmd, SetupUiState};
 use tracing::info;
 
 #[derive(Parser, Debug)]
@@ -30,6 +31,8 @@ fn build_program_handle(
     config: &AppConfig,
     args: &Args,
     status: Arc<RwLock<StatusSnapshot>>,
+    setup: Arc<RwLock<SetupUiState>>,
+    toast: Arc<Mutex<Option<(String, bool, Instant)>>>,
     op_tx: Option<std::sync::mpsc::Sender<OperatorCmd>>,
 ) -> ProgramOutputHandle {
     if should_use_headless(args.test) || args.no_ui {
@@ -41,7 +44,10 @@ fn build_program_handle(
         ProgramOutputHandle::spawn_ui(UiSpawnConfig {
             operator: Some(config.operator.clone()),
             status,
+            setup,
+            toast,
             cmd_tx: op_tx,
+            test_mode: args.test,
         })
     } else {
         ProgramOutputHandle::spawn_program_only()
@@ -66,6 +72,8 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let status = Arc::new(RwLock::new(StatusSnapshot::default_offline()));
+    let setup = Arc::new(RwLock::new(SetupUiState::new()));
+    let toast = Arc::new(Mutex::new(None));
     let show_operator =
         config.operator.enabled && !args.no_ui && !should_use_headless(args.test);
     let (op_tx, op_rx) = if show_operator {
@@ -75,7 +83,14 @@ async fn main() -> anyhow::Result<()> {
         (None, None)
     };
 
-    let program = build_program_handle(&config, &args, status.clone(), op_tx);
+    let program = build_program_handle(
+        &config,
+        &args,
+        status.clone(),
+        setup.clone(),
+        toast.clone(),
+        op_tx,
+    );
 
     let (controller, event_receivers) =
         EngineController::new(config.clone(), args.test, program);
@@ -86,7 +101,7 @@ async fn main() -> anyhow::Result<()> {
         event_receivers,
         rt_handle.clone(),
     );
-    replay_engine::device_watch::spawn_device_watch(controller.clone());
+    replay_engine::device_watch::spawn_device_watch(controller.clone(), args.test);
 
     let api = ControlApi::new(controller.clone());
 
@@ -114,11 +129,18 @@ async fn main() -> anyhow::Result<()> {
 
     if let Some(op_rx) = op_rx {
         let api_cmds = api.clone();
+        let setup_cmds = setup.clone();
+        let toast_cmds = toast.clone();
         let rt = rt_handle.clone();
+        let test_mode = args.test;
         std::thread::Builder::new()
             .name("operator-cmd".to_string())
             .spawn(move || {
                 while let Ok(cmd) = op_rx.recv() {
+                    let show_ok_toast = matches!(
+                        cmd,
+                        OperatorCmd::ApplySetup | OperatorCmd::RefreshSetup
+                    );
                     let result = rt.block_on(async {
                         match cmd {
                             OperatorCmd::Mark => api_cmds.mark().await.map(|_| ()),
@@ -126,10 +148,62 @@ async fn main() -> anyhow::Result<()> {
                             OperatorCmd::ReplayLast => api_cmds.replay_last(10).await,
                             OperatorCmd::ReturnLive => api_cmds.return_live().await,
                             OperatorCmd::ClearMark => api_cmds.clear_mark().await,
+                            OperatorCmd::LockSetup => {
+                                setup_cmds.write().unwrap().lock();
+                                Ok(())
+                            }
+                            OperatorCmd::RefreshSetup => {
+                                let displays = api_cmds.list_displays();
+                                let mut g = setup_cmds.write().unwrap();
+                                g.set_displays(displays);
+                                g.refresh_devices(test_mode);
+                                Ok(())
+                            }
+                            OperatorCmd::ApplySetup => {
+                                let sel = setup_cmds
+                                    .read()
+                                    .unwrap()
+                                    .selection()
+                                    .ok_or_else(|| {
+                                        anyhow::anyhow!("Select a camera and format first")
+                                    })?;
+                                let mut cfg = api_cmds.get_config().await;
+                                if api_cmds.controller().capture_running() {
+                                    api_cmds.stop().await?;
+                                }
+                                let device_id = sel.device_id.clone();
+                                let pixel_format = sel.pixel_format.clone();
+                                cfg.input.device_id = device_id.clone();
+                                cfg.input.resolution =
+                                    format!("{}x{}", sel.width, sel.height);
+                                cfg.input.fps = sel.fps;
+                                cfg.input.pixel_format = pixel_format.clone();
+                                cfg.output.display_id = sel.display_id;
+                                api_cmds.set_config(cfg.clone()).await?;
+                                api_cmds
+                                    .start_live(
+                                        device_id,
+                                        sel.width,
+                                        sel.height,
+                                        sel.fps,
+                                        pixel_format,
+                                        sel.display_id,
+                                        cfg.output.fullscreen,
+                                    )
+                                    .await
+                            }
                         }
                     });
-                    if let Err(e) = result {
-                        tracing::warn!(error = %e, "Operator command failed");
+                    match result {
+                        Ok(()) => {
+                            if show_ok_toast {
+                                show_toast(&toast_cmds, "OK".into(), false);
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!(error = %e, "Operator command failed");
+                            show_toast(&toast_cmds, e.to_string(), true);
+                        }
                     }
                 }
             })
@@ -141,32 +215,31 @@ async fn main() -> anyhow::Result<()> {
         tracing::warn!(
             "Skipping live autostart: no DISPLAY (set DISPLAY=:0 in replay-engine.service and enable desktop autologin)"
         );
-    } else if autostart {
+    } else if autostart && !args.test {
         info!("Appliance mode: autostart live");
-        let (w, h) = config.parse_resolution().unwrap_or((1920, 1080));
-        let device = if config.input.device_id.is_empty() {
-            "test".to_string()
-        } else {
-            config.input.device_id.clone()
-        };
-        if let Err(e) = api
+        if let Err(e) = api.start_live_from_config(&config).await {
+            tracing::error!(error = %e, "Appliance autostart failed");
+        }
+    } else if autostart && args.test {
+        let _ = api
             .start_live(
-                device,
-                w,
-                h,
-                config.input.fps,
-                config.input.pixel_format.clone(),
+                "test".into(),
+                1280,
+                720,
+                30,
+                "auto".into(),
                 config.output.display_id,
                 config.output.fullscreen,
             )
-            .await
-        {
-            tracing::error!(error = %e, "Appliance autostart failed");
-        }
+            .await;
     }
 
     if !args.no_ui && config.operator.enabled && !should_use_headless(args.test) {
         info!("Native operator UI running (close window to exit)");
+        let displays = api.list_displays();
+        if let Ok(mut g) = setup.write() {
+            g.set_displays(displays);
+        }
     } else {
         info!("Running without operator UI (keyboard hotkeys only)");
     }

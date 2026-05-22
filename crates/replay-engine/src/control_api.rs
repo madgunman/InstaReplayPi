@@ -6,6 +6,7 @@ use anyhow::Result;
 use replay_core::config::AppConfig;
 use replay_core::types::{DisplayInfo, VideoDevice, VideoFormat};
 
+use crate::capture_select;
 use crate::controller::{Diagnostics, EngineController, StatusSnapshot};
 use crate::devices::{self, CaptureDevice};
 
@@ -61,9 +62,53 @@ impl ControlApi {
         display_id: u32,
         fullscreen: bool,
     ) -> Result<()> {
-        self.inner
-            .start_live(device_id, width, height, fps, pixel_format, display_id, fullscreen)
+        match self
+            .inner
+            .start_live(
+                device_id,
+                width,
+                height,
+                fps,
+                pixel_format,
+                display_id,
+                fullscreen,
+            )
             .await
+        {
+            Ok(()) => Ok(()),
+            Err(e) => {
+                let hint = devices::live_start_error_hint(&e.to_string());
+                self.inner.set_last_error(hint).await;
+                Err(e)
+            }
+        }
+    }
+
+    /// Resolve `auto` device/format and start live using current config output settings.
+    pub async fn start_live_from_config(&self, config: &AppConfig) -> Result<()> {
+        let resolved = capture_select::resolve_input(&config.input).map_err(|e| {
+            anyhow::anyhow!(devices::live_start_error_hint(&e.to_string()))
+        })?;
+        let displays = self.list_displays();
+        let display_id = if config.output.auto_display {
+            capture_select::resolve_output_display(
+                true,
+                config.operator.display_id,
+                &displays,
+            )
+        } else {
+            config.output.display_id
+        };
+        self.start_live(
+            resolved.device_id,
+            resolved.width,
+            resolved.height,
+            resolved.fps,
+            resolved.pixel_format,
+            display_id,
+            config.output.fullscreen,
+        )
+        .await
     }
 
     pub async fn stop(&self) -> Result<()> {

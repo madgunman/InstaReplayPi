@@ -9,7 +9,7 @@
 ## Architecture
 
 - `replay-engine` — GStreamer capture (`v4l2src`), rolling buffer, replay, HDMI program output
-- **Native operator UI** (egui) on Pi touch display — no browser
+- **Native operator UI** (egui) on Pi touch — plug-and-play USB capture (`auto`) + PIN-gated Setup
 - Video never passes through the UI layer
 
 ## Quick start (Pi 5)

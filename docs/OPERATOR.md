@@ -6,7 +6,7 @@ Venue runbook for table-tennis instant replay. Config: [CONFIG.md](CONFIG.md). I
 
 | Step | Check |
 |------|--------|
-| 1 | Cam Link / UVC on `/dev/video0` — `./scripts/doctor-pi.sh` |
+| 1 | USB capture connected — `./scripts/doctor-pi.sh` (auto-detect) |
 | 2 | Audience HDMI shows live after boot (`replay-engine.service`) |
 | 3 | USB3 SSD mounted at `/var/lib/instant-replay` — **≥ 5 GB** free |
 | 4 | **Native operator window** on Pi touch — status **LIVE**, buffer **≥ 2 s** |
@@ -31,13 +31,18 @@ Venue runbook for table-tennis instant replay. Config: [CONFIG.md](CONFIG.md). I
 | Audience HDMI | GStreamer/winit program output (fullscreen) |
 | Pi official 7" touch | Native egui operator shell |
 
-Set `output.display_id` and `operator.display_id` in config if monitors are swapped.
+With two monitors, `output.auto_display = true` (default) routes HDMI automatically; override in Setup if needed.
 
 ## Operator UI
 
-Large buttons: Mark, Replay, Replay Last, Live, Clear. Buttons stay disabled until `buffer_ready` (same as keyboard gating).
+**Match:** Mark, Replay, Replay Last, Live, Clear. Buttons stay disabled until `buffer_ready` (same as keyboard gating).
 
-Technician setup (devices, config) is **not** in the operator UI during a match — edit `/etc/instant-replay/config.toml` before play.
+**Setup (technician, before the match):**
+
+1. Hold the **status banner 3 s** or tap **Unlock setup (PIN)** (default PIN `0000` in config).
+2. Pick **Camera** (webcam, BRIO, Cam Link, etc.), **Format**, and **Audience HDMI**.
+3. **Apply & go live** — saves to `/etc/instant-replay/config.toml`.
+4. Tap **Lock setup** before the match so operators only see match buttons.
 
 ## Status indicators
 
@@ -66,6 +71,7 @@ Technician setup (devices, config) is **not** in the operator UI during a match 
 | No operator window | No DISPLAY / autologin | Desktop autologin; `DISPLAY=:0` in systemd |
 | Black operator window | GL/EGL missing | `sudo apt install libegl1 libgles2` |
 | Audience HDMI black | Wrong `output.display_id` | Edit config; restart service |
-| Capture fails | Wrong `/dev/video*` | `v4l2-ctl --list-devices`; fix `input.device_id` |
+| Stuck on STARTING | No device / wrong format | Plug in USB capture; unlock Setup → Refresh → Apply; or set `device_id = auto` |
+| Capture fails | Wrong mode | Setup → pick MJPEG 1080p30 or 720p30 |
 
 Diagnostics: `journalctl -u replay-engine -f` or `./scripts/doctor-pi.sh`

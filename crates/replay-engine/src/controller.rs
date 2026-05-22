@@ -657,6 +657,11 @@ impl EngineController {
         crate::displays::list_displays(self.runtime.program_output())
     }
 
+    pub async fn set_last_error(&self, msg: String) {
+        self.diagnostics.write().await.last_error = msg;
+        self.publish_status().await;
+    }
+
     pub async fn clean_buffer(&self) -> Result<()> {
         let path = self.config.read().await.storage.buffer_path.clone();
         ChunkIndex::new(path.clone(), 20, 1).clean_all();

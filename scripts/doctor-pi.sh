@@ -28,10 +28,19 @@ else
   fail "gst-inspect-1.0 not found"
 fi
 
-if [ -e /dev/video0 ]; then
-  ok "/dev/video0 present"
+echo ""
+echo "USB / V4L2 capture devices:"
+if command -v v4l2-ctl >/dev/null 2>&1; then
+  v4l2-ctl --list-devices 2>/dev/null | grep -v "^$" | head -30 || warn "v4l2-ctl list failed"
 else
-  warn "/dev/video0 missing (camera not connected?)"
+  warn "v4l2-ctl not installed"
+fi
+
+if grep -q 'device_id = "auto"' /etc/instant-replay/config.toml 2>/dev/null \
+  || ! grep -q '^\[input\]' /etc/instant-replay/config.toml 2>/dev/null; then
+  ok "input.device_id auto-detect enabled"
+else
+  warn "input.device_id is manual — consider device_id = \"auto\" for plug-and-play"
 fi
 
 if mountpoint -q "$(dirname "$BUFFER")" 2>/dev/null; then

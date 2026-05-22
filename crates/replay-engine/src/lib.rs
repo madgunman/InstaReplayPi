@@ -1,3 +1,4 @@
+pub mod capture_select;
 pub mod chunk_index_actor;
 pub mod chunk_registry;
 pub mod control_api;

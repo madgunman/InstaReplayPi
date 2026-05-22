@@ -22,6 +22,10 @@ pub struct OperatorConfig {
     pub width: u32,
     pub height: u32,
     pub fullscreen: bool,
+    /// Empty = PIN disabled; long-press on banner still unlocks setup.
+    pub setup_pin: String,
+    /// Seconds setup stays unlocked after PIN or long-press.
+    pub setup_unlock_seconds: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,6 +43,8 @@ pub struct OutputConfig {
     pub display_id: u32,
     pub fullscreen: bool,
     pub show_status_overlay: bool,
+    /// When true and multiple monitors exist, audience HDMI is non-operator display.
+    pub auto_display: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -97,6 +103,8 @@ impl Default for OperatorConfig {
             width: 800,
             height: 480,
             fullscreen: false,
+            setup_pin: "0000".to_string(),
+            setup_unlock_seconds: 600,
         }
     }
 }
@@ -104,9 +112,9 @@ impl Default for OperatorConfig {
 impl Default for InputConfig {
     fn default() -> Self {
         Self {
-            device_id: "v4l2:/dev/video0".to_string(),
-            resolution: "1920x1080".to_string(),
-            fps: 50,
+            device_id: "auto".to_string(),
+            resolution: "auto".to_string(),
+            fps: 0,
             pixel_format: "auto".to_string(),
         }
     }
@@ -118,6 +126,7 @@ impl Default for OutputConfig {
             display_id: 0,
             fullscreen: true,
             show_status_overlay: false,
+            auto_display: true,
         }
     }
 }
@@ -205,7 +214,11 @@ impl AppConfig {
     }
 
     pub fn parse_resolution(&self) -> Option<(u32, u32)> {
-        let parts: Vec<_> = self.input.resolution.split('x').collect();
+        let r = self.input.resolution.trim();
+        if r.is_empty() || r.eq_ignore_ascii_case("auto") {
+            return None;
+        }
+        let parts: Vec<_> = r.split('x').collect();
         if parts.len() == 2 {
             Some((parts[0].parse().ok()?, parts[1].parse().ok()?))
         } else {
@@ -235,5 +248,14 @@ mod tests {
         let cfg = AppConfig::default();
         assert!(cfg.appliance.enabled);
         assert!(cfg.appliance.autostart_live);
+    }
+
+    #[test]
+    fn default_input_auto_detect() {
+        let cfg = AppConfig::default();
+        assert_eq!(cfg.input.device_id, "auto");
+        assert_eq!(cfg.input.resolution, "auto");
+        assert_eq!(cfg.input.fps, 0);
+        assert!(cfg.output.auto_display);
     }
 }
