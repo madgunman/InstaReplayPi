@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Instant Replay
+Comment=Table tennis instant replay control
+Exec=instant-replay-launch
+Icon=instant-replay
+Terminal=false
+Categories=AudioVideo;Player;
+StartupNotify=true

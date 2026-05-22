@@ -1,0 +1,19 @@
+[Unit]
+Description=Instant Replay Engine
+After=network.target graphical.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Wrapper sets GST_PLUGIN_PATH (see packaging/lib/gstreamer-env.sh)
+ExecStart=/usr/bin/instant-replay --appliance
+Restart=always
+RestartSec=3
+StartLimitIntervalSec=0
+EnvironmentFile=-/etc/default/replay-engine
+# Set User= in a drop-in for venue accounts (e.g. User=pi on Raspberry Pi).
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

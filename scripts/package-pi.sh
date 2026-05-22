@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# Raspberry Pi 5 (aarch64) tarball — build natively on the Pi or on ubuntu-24.04-arm CI.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/lib/version.sh
+source "$ROOT/scripts/lib/version.sh"
+VERSION="$(get_workspace_version "$ROOT")"
+STAMP="${VERSION}-pi5-aarch64"
+DIST_NAME="InstantReplay-${STAMP}"
+DIST="$ROOT/dist/${DIST_NAME}"
+
+if [[ "$(uname -m)" != "aarch64" ]]; then
+  echo "Pi package is intended to be built ON aarch64 (Pi 5 or ubuntu-24.04-arm CI)."
+  echo "For cross-compile from x86_64, install rustup target aarch64-unknown-linux-gnu."
+fi
+
+echo "==> Building replay-engine (release)"
+(cd "$ROOT" && cargo build -p replay-engine --release)
+
+rm -rf "$DIST"
+mkdir -p "$DIST/bin" "$DIST/scripts" "$DIST/assets/touch" "$DIST/systemd" \
+  "$DIST/share/doc/instant-replay" "$DIST/etc/instant-replay"
+
+cp "$ROOT/target/release/replay-engine" "$DIST/bin/"
+cp "$ROOT/packaging/lib/gstreamer-env.sh" "$DIST/scripts/"
+cp "$ROOT/systemd/replay-engine.service" "$DIST/systemd/"
+cp "$ROOT/systemd/instant-replay-kiosk.service" "$DIST/systemd/"
+cp "$ROOT/config/default.toml" "$DIST/etc/instant-replay/config.toml.example"
+cp -R "$ROOT/assets/touch/." "$DIST/assets/touch/"
+cp "$ROOT/packaging/linux/replay-engine.default" "$DIST/replay-engine.default" 2>/dev/null || true
+cp "$ROOT/docs/PI_DEPLOYMENT.md" "$DIST/share/doc/instant-replay/OPERATOR-PI.md"
+cp "$ROOT/docs/OPERATOR.md" "$DIST/share/doc/instant-replay/"
+cp "$ROOT/docs/CONFIG.md" "$DIST/share/doc/instant-replay/"
+cp "$ROOT/docs/PI_ONLY.md" "$DIST/share/doc/instant-replay/"
+cp "$ROOT/docs/acceptance/RESULTS-pi.md" "$DIST/share/doc/instant-replay/" 2>/dev/null || true
+cp "$ROOT/docs/OPERATOR.md" "$DIST/OPERATOR.md"
+cp "$ROOT/docs/CONFIG.md" "$DIST/CONFIG.md"
+cp "$ROOT/scripts/doctor-pi.sh" "$DIST/scripts/"
+echo "$VERSION" >"$DIST/VERSION"
+
+cat > "$DIST/bin/instant-replay" <<'LAUNCHER'
+#!/usr/bin/env bash
+set -euo pipefail
+DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=/dev/null
+source "$DIR/scripts/gstreamer-env.sh"
+exec "$DIR/bin/replay-engine" "$@"
+LAUNCHER
+chmod +x "$DIST/bin/instant-replay" "$DIST/bin/replay-engine" "$DIST/scripts/doctor-pi.sh"
+
+cat > "$DIST/install-on-pi.sh" <<'INSTALL'
+#!/usr/bin/env bash
+set -euo pipefail
+DIR="$(cd "$(dirname "$0")" && pwd)"
+sudo cp "$DIR/bin/replay-engine" /usr/local/bin/
+sudo cp "$DIR/bin/instant-replay" /usr/local/bin/
+sudo mkdir -p /etc/instant-replay /var/lib/instant-replay
+if [ ! -f /etc/instant-replay/config.toml ]; then
+  sudo cp "$DIR/etc/instant-replay/config.toml.example" /etc/instant-replay/config.toml
+fi
+sudo cp "$DIR/systemd/replay-engine.service" /etc/systemd/system/
+sudo cp "$DIR/systemd/instant-replay-kiosk.service" /etc/systemd/system/
+sudo cp "$DIR/replay-engine.default" /etc/default/replay-engine 2>/dev/null || true
+if ! grep -q INSTANT_REPLAY_V4L2_IO_MODE /etc/default/replay-engine 2>/dev/null; then
+  echo 'INSTANT_REPLAY_V4L2_IO_MODE=dmabuf' | sudo tee -a /etc/default/replay-engine >/dev/null
+fi
+sudo mkdir -p /etc/systemd/system/replay-engine.service.d
+echo -e '[Service]\nUser=pi' | sudo tee /etc/systemd/system/replay-engine.service.d/user.conf >/dev/null
+sudo chown pi:pi /var/lib/instant-replay 2>/dev/null || true
+sudo systemctl daemon-reload
+sudo systemctl enable replay-engine
+echo "Touch kiosk (optional): sudo systemctl enable --now instant-replay-kiosk"
+echo "Edit /etc/instant-replay/config.toml (SSD buffer path) then:"
+echo "  sudo systemctl start replay-engine"
+echo "  ./scripts/doctor-pi.sh"
+INSTALL
+chmod +x "$DIST/install-on-pi.sh"
+
+cat > "$DIST/README.txt" <<EOF
+Instant Replay ${STAMP} (Raspberry Pi 5) version ${VERSION}
+
+GitHub: https://github.com/madgunman/InstaReplayPi
+
+Single daemon: replay-engine --appliance
+Touch UI: http://127.0.0.1:8080 (enable instant-replay-kiosk.service for Chromium fullscreen)
+
+Quick install on Pi:
+  ./install-on-pi.sh
+
+Or from GitHub: scripts/install-from-github.sh --release
+
+Mount USB3 SSD at /var/lib/instant-replay for buffer storage.
+EOF
+
+TARBALL="$ROOT/dist/${DIST_NAME}.tar.gz"
+tar -C "$ROOT/dist" -czf "$TARBALL" "$DIST_NAME"
+echo "Pi tarball: $TARBALL"

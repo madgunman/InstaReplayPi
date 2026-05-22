@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  sync-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify workspace version
+        run: |
+          chmod +x scripts/sync-version.sh scripts/lib/version.sh
+          CHECK_ONLY=1 ./scripts/sync-version.sh
+
+  build-pi:
+    needs: [sync-version]
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install GStreamer (aarch64)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            gstreamer1.0-plugins-good gstreamer1.0-tools pkg-config
+      - run: |
+          chmod +x scripts/package-pi.sh scripts/sync-version.sh
+          ./scripts/sync-version.sh
+          ./scripts/package-pi.sh
+      - name: Attach operator docs
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cp docs/OPERATOR.md "dist/OPERATOR-${VERSION}.md"
+          cp docs/CONFIG.md "dist/CONFIG-${VERSION}.md"
+          cp docs/PI_ONLY.md "dist/PI_ONLY-${VERSION}.md"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pi5-aarch64
+          path: |
+            dist/InstantReplay-*-pi5-aarch64.tar.gz
+            dist/OPERATOR-*.md
+            dist/CONFIG-*.md
+            dist/PI_ONLY-*.md
+
+  release:
+    needs: [build-pi]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          body: |
+            ## Instant Replay ${{ github.ref_name }} (Raspberry Pi 5)
+
+            Pi OS 64-bit appliance: `replay-engine` + touch UI on `http://127.0.0.1:8080`.
+
+            | Artifact | Platform |
+            |----------|----------|
+            | pi5-aarch64 | `.tar.gz` + `install-on-pi.sh` |
+
+            See **OPERATOR.md** and **docs/PI_DEPLOYMENT.md** in the bundle.
+
+            Full checklist: [docs/RELEASE.md](https://github.com/${{ github.repository }}/blob/main/docs/RELEASE.md)
+          generate_release_notes: true

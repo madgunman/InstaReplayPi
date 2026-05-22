@@ -1,0 +1,31 @@
+[package]
+name = "replay-engine"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "replay-engine"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+axum = { workspace = true }
+chrono = { workspace = true }
+clap = { version = "4.5", features = ["derive", "env"] }
+fs2 = "0.4"
+global-hotkey = "0.6"
+glib = "0.20"
+libc = "0.2"
+gstreamer = { version = "0.23", features = ["v1_20"] }
+gstreamer-app = "0.23"
+gstreamer-video = "0.23"
+replay-core = { path = "../replay-core" }
+raw-window-handle = "0.6"
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tower-http = { workspace = true }
+tracing = { workspace = true }
+tracing-appender = { workspace = true }
+tracing-subscriber = { workspace = true }
+winit = { version = "0.30", features = ["rwh_06"] }

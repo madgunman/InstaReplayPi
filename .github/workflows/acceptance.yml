@@ -1,0 +1,61 @@
+name: MVP Acceptance
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      soak_seconds:
+        description: "Soak duration in seconds (release gate: 3600; CI default: 120)"
+        required: false
+        default: "120"
+
+jobs:
+  mvp-accept:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            gstreamer1.0-plugins-good gstreamer1.0-tools pkg-config \
+            xvfb curl jq
+      - run: cargo build -p replay-engine --release
+      - name: Run MVP acceptance (test pattern + xvfb)
+        run: |
+          chmod +x scripts/mvp_accept.sh scripts/mvp_accept-full.sh
+          ./scripts/mvp_accept-full.sh
+      - name: Upload acceptance log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mvp-accept-log
+          path: /tmp/replay-mvp-accept.log
+
+  soak-smoke:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            gstreamer1.0-plugins-good gstreamer1.0-tools pkg-config \
+            xvfb curl
+      - run: cargo build -p replay-engine --release
+      - name: Soak smoke
+        env:
+          SOAK_SECONDS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.soak_seconds || '120' }}
+        run: |
+          chmod +x scripts/soak_test.sh
+          xvfb-run -a ./target/release/replay-engine --test &
+          ENGINE_PID=$!
+          sleep 8
+          SOAK_INTERVAL=10 ./scripts/soak_test.sh
+          kill "$ENGINE_PID" 2>/dev/null || true

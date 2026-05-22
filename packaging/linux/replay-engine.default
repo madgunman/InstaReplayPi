@@ -1,0 +1,4 @@
+# /etc/default/replay-engine — sourced by systemd unit (EnvironmentFile)
+# Pi 5: prefer dmabuf capture (default on aarch64 when unset)
+# INSTANT_REPLAY_V4L2_IO_MODE=dmabuf
+# GST_DEBUG=1

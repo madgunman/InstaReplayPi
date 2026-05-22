@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Instant Replay</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: #1a1a1a;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 12px 16px;
+      font-size: 1.25rem;
+      font-weight: 700;
+      background: #2d2d2d;
+    }
+    #banner {
+      padding: 14px 16px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      background: #3d5a3d;
+    }
+    #banner.warn { background: #8b4513; }
+    #banner.error { background: #8b2222; }
+    #detail { padding: 8px 16px; font-size: 0.9rem; opacity: 0.9; }
+    .grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 16px;
+    }
+    button {
+      min-height: 72px;
+      font-size: 1.15rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      background: #e85d04;
+      color: #fff;
+      touch-action: manipulation;
+    }
+    button:disabled {
+      background: #555;
+      color: #999;
+    }
+    button.wide { grid-column: span 2; }
+    #toast {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      padding: 12px;
+      background: #333;
+      border-radius: 8px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <header>Instant Replay</header>
+  <div id="banner">Connecting…</div>
+  <div id="detail">Buffer: —</div>
+  <div class="grid">
+    <button id="btnMark">Mark (M)</button>
+    <button id="btnReplay">Replay (R)</button>
+    <button id="btnLast" class="wide">Last 10s (Space)</button>
+    <button id="btnLive">Live (L)</button>
+    <button id="btnClear">Clear mark (C)</button>
+  </div>
+  <div id="toast"></div>
+  <script>
+    const MIN_BUFFER = 1.5;
+    const banner = document.getElementById('banner');
+    const detail = document.getElementById('detail');
+    const toast = document.getElementById('toast');
+    const btnMark = document.getElementById('btnMark');
+    const btnReplay = document.getElementById('btnReplay');
+    const btnLast = document.getElementById('btnLast');
+    const btnLive = document.getElementById('btnLive');
+    const btnClear = document.getElementById('btnClear');
+
+    let lastStatus = null;
+
+    function showToast(msg, isError) {
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      toast.style.background = isError ? '#8b2222' : '#333';
+      setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    async function api(path, method = 'GET', body) {
+      const opts = { method };
+      if (body) {
+        opts.headers = { 'Content-Type': 'application/json' };
+        opts.body = JSON.stringify(body);
+      }
+      const r = await fetch(path, opts);
+      return r.json();
+    }
+
+    function canMark(s) {
+      return s.bufferReady && (s.state === 'LIVE' || s.state === 'MARKED');
+    }
+    function canReplay(s) {
+      return s.bufferSecondsAvailable >= MIN_BUFFER &&
+        (s.state === 'LIVE' || s.state === 'MARKED' || s.state === 'REPLAYING');
+    }
+
+    function updateUi(s) {
+      lastStatus = s;
+      banner.textContent = s.state || 'UNKNOWN';
+      banner.className = '';
+      if (s.state === 'NO_SIGNAL') banner.classList.add('error');
+      else if (s.state === 'REPLAYING') banner.classList.add('warn');
+      detail.textContent = `Buffer: ${s.bufferSecondsAvailable?.toFixed(1) ?? '0'}s` +
+        (s.lastError ? ` — ${s.lastError}` : '');
+      btnMark.disabled = !canMark(s);
+      btnReplay.disabled = !canReplay(s);
+      btnLast.disabled = !canReplay(s);
+      btnLive.disabled = false;
+      btnClear.disabled = s.state !== 'MARKED';
+    }
+
+    async function poll() {
+      try {
+        const h = await api('/api/health');
+        if (!h.ok) {
+          banner.textContent = 'Engine offline';
+          banner.className = 'error';
+          return;
+        }
+        const s = await api('/api/status');
+        updateUi(s);
+      } catch (e) {
+        banner.textContent = 'Cannot reach engine';
+        banner.className = 'error';
+      }
+    }
+
+    async function act(path, body) {
+      try {
+        const r = await api(path, 'POST', body);
+        if (!r.ok) showToast(r.error || 'Failed', true);
+        else showToast('OK');
+        await poll();
+      } catch (e) {
+        showToast(String(e), true);
+      }
+    }
+
+    btnMark.onclick = () => act('/api/mark');
+    btnReplay.onclick = () => act('/api/replay');
+    btnLast.onclick = () => act('/api/replay-last', { seconds: 10 });
+    btnLive.onclick = () => act('/api/return-live');
+    btnClear.onclick = () => act('/api/clear-mark');
+
+    setInterval(poll, 1000);
+    poll();
+  </script>
+</body>
+</html>

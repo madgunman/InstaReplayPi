@@ -1,0 +1,38 @@
+# Example Pi appliance config — install to /etc/instant-replay/config.toml
+
+[input]
+device_id = "v4l2:/dev/video0"
+resolution = "1920x1080"
+fps = 50
+pixel_format = "auto"
+
+[output]
+display_id = 0
+fullscreen = true
+show_status_overlay = false
+
+[replay]
+buffer_seconds = 20
+default_replay_seconds = 10
+chunk_seconds = 1
+speed = 0.5
+mode = "marked"
+
+[storage]
+buffer_path = "/var/lib/instant-replay/buffer"
+auto_clean_on_start = true
+
+[hotkeys]
+mark = "M"
+replay = "R"
+replay_last = "Space"
+return_live = "L"
+clear_mark = "C"
+
+[appliance]
+enabled = true
+autostart_live = true
+
+[http]
+enabled = true
+bind_addr = "127.0.0.1:8080"
