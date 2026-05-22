@@ -29,7 +29,8 @@ log "System packages (GStreamer, OpenGL/EGL for native UI)..."
 sudo apt-get update -qq
 sudo apt-get install -y \
   curl ca-certificates \
-  gstreamer1.0-plugins-good gstreamer1.0-tools \
+  gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
+  gstreamer1.0-tools \
   libgstreamer1.0-0 libgstreamer-plugins-base1.0-0 \
   libegl1 libgles2 \
   v4l-utils

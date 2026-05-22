@@ -26,8 +26,27 @@ fi
 
 echo "==> Installing Instant Replay to $OPT_PREFIX (user: $RUN_USER)"
 
-sudo apt-get install -y -qq libegl1 libgles2 2>/dev/null || \
+sudo apt-get update -qq
+sudo apt-get install -y -qq \
+  gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
+  gstreamer1.0-tools \
+  libgstreamer1.0-0 libgstreamer-plugins-base1.0-0 \
+  libegl1 libgles2 v4l-utils 2>/dev/null || \
   sudo apt-get install -y -qq libegl1-mesa libgles2-mesa 2>/dev/null || true
+
+if systemctl is-active --quiet replay-engine 2>/dev/null; then
+  echo "==> Stopping replay-engine for upgrade..."
+  sudo systemctl stop replay-engine
+fi
+for _ in $(seq 1 25); do
+  pgrep -x replay-engine >/dev/null || break
+  sleep 0.2
+done
+if pgrep -x replay-engine >/dev/null; then
+  echo "==> Stopping leftover replay-engine process..."
+  sudo pkill -x replay-engine 2>/dev/null || true
+  sleep 1
+fi
 
 sudo mkdir -p "$OPT_PREFIX"
 sudo cp -a "$PKG_ROOT"/. "$OPT_PREFIX/"

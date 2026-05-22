@@ -17,7 +17,7 @@ if [ "$(uname -m)" != "aarch64" ]; then
 fi
 
 if command -v gst-inspect-1.0 >/dev/null 2>&1; then
-  for plug in v4l2src splitmuxsink uridecodebin; do
+  for plug in v4l2src x264enc h264parse splitmuxsink glimagesink uridecodebin; do
     if gst-inspect-1.0 "$plug" >/dev/null 2>&1; then
       ok "GStreamer plugin $plug"
     else

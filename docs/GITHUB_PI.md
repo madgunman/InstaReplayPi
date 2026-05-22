@@ -10,7 +10,7 @@ curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/script
 
 This will:
 
-1. Install apt packages (GStreamer, EGL/GLES for native UI)
+1. Install apt packages (GStreamer good/bad/ugly for capture + EGL/GLES for native UI)
 2. Download the latest **release** binary (`pi5-aarch64` tarball)
 3. Install to `/opt/instant-replay`
 4. Enable `replay-engine` at boot (native operator window + HDMI)
@@ -20,14 +20,23 @@ Then set **Desktop Autologin** → your user → `sudo reboot`.
 ### Options
 
 ```bash
-INSTANT_REPLAY_USER=admin INSTANT_REPLAY_TAG=v0.2.0 \
+INSTANT_REPLAY_USER=admin INSTANT_REPLAY_TAG=v0.2.1 \
   curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
+```
+
+## Greenfield reinstall
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/uninstall-instant-replay.sh | bash
+INSTANT_REPLAY_USER=admin INSTANT_REPLAY_TAG=v0.2.1 \
+  curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
+sudo reboot
 ```
 
 ## Fix existing broken install
 
 ```bash
-INSTANT_REPLAY_USER=admin INSTANT_REPLAY_TAG=v0.2.0 \
+INSTANT_REPLAY_USER=admin INSTANT_REPLAY_TAG=v0.2.1 \
   curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
 ```
 

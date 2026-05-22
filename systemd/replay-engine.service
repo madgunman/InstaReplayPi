@@ -2,6 +2,8 @@
 Description=Instant Replay Engine
 After=network.target graphical.target
 Wants=network-online.target graphical.target
+StartLimitIntervalSec=0
+StartLimitBurst=0
 
 [Service]
 Type=simple
@@ -10,7 +12,6 @@ Environment=DISPLAY=:0
 Environment=GST_PLUGIN_PATH=/usr/lib/aarch64-linux-gnu/gstreamer-1.0
 Restart=always
 RestartSec=3
-StartLimitIntervalSec=0
 EnvironmentFile=-/etc/default/replay-engine
 StandardOutput=journal
 StandardError=journal
