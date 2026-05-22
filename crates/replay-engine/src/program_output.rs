@@ -324,7 +324,9 @@ fn build_program_event_loop() -> Result<EventLoop<()>, winit::error::EventLoopEr
     {
         use winit::platform::wayland::EventLoopBuilderExtWayland;
         use winit::platform::x11::EventLoopBuilderExtX11;
-        builder.with_any_thread(true);
+        // UFCS: both traits define with_any_thread; method call is ambiguous on Linux.
+        EventLoopBuilderExtWayland::with_any_thread(&mut builder, true);
+        EventLoopBuilderExtX11::with_any_thread(&mut builder, true);
     }
     builder.build()
 }
