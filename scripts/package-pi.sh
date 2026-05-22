@@ -38,6 +38,7 @@ cp "$ROOT/docs/CONFIG.md" "$DIST/CONFIG.md"
 cp "$ROOT/scripts/doctor-pi.sh" "$DIST/scripts/"
 cp "$ROOT/scripts/enable-appliance-autostart.sh" "$DIST/scripts/"
 cp "$ROOT/scripts/start-instant-replay-ui.sh" "$DIST/scripts/"
+cp "$ROOT/scripts/install-instant-replay.sh" "$DIST/scripts/"
 cp "$ROOT/scripts/install-on-pi.sh" "$DIST/"
 cp "$ROOT/packaging/pi/instant-replay.desktop" "$DIST/share/"
 mkdir -p "$DIST/packaging/pi"
@@ -66,10 +67,10 @@ GitHub: https://github.com/madgunman/InstaReplayPi
 Single daemon: replay-engine --appliance
 Touch UI: http://127.0.0.1:8080 (enable instant-replay-kiosk.service for Chromium fullscreen)
 
-Quick install on Pi:
-  ./install-on-pi.sh
+One-command install on Pi:
+  curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
 
-Or from GitHub: scripts/install-from-github.sh --release
+Or from tarball: ./install-on-pi.sh [username]
 
 Autostart (Option B): included via install-on-pi.sh
   Set Desktop Autologin for your user, then reboot.

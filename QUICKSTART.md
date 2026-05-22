@@ -4,15 +4,13 @@ Repository: **https://github.com/madgunman/InstaReplayPi.git**
 
 Full GitHub install paths: [docs/GITHUB_PI.md](docs/GITHUB_PI.md)
 
-## Fastest path (on the Pi, after you pushed a `v*` release)
+## Fastest path (on the Pi — one command)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-from-github.sh -o /tmp/install-ir.sh
-chmod +x /tmp/install-ir.sh
-/tmp/install-ir.sh --release
-# Autostart is configured by install — set Desktop Autologin, then:
-sudo reboot
+curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
 ```
+
+Set **Desktop Autologin** for your user, then `sudo reboot`.
 
 ## Clone and build on the Pi
 

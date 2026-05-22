@@ -24,7 +24,13 @@ sudo cp config/default.toml /etc/instant-replay/config.toml   # edit device + SS
 # Touch UI: http://127.0.0.1:8080
 ```
 
-Production install: GitHub Release tarball or `./scripts/install-from-github.sh` on the Pi ([docs/GITHUB_PI.md](docs/GITHUB_PI.md))
+Production install (one command on the Pi):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
+```
+
+See [docs/GITHUB_PI.md](docs/GITHUB_PI.md).
 
 ## Keyboard shortcuts
 

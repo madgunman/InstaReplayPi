@@ -1,73 +1,126 @@
 #!/usr/bin/env bash
-# Install binaries + systemd units from a package-pi dist folder or repo root.
-# Usage: ./install-on-pi.sh [username]
+# Install Instant Replay under /opt/instant-replay and enable autostart.
+# Usage: sudo ./install-on-pi.sh [username]
+# Run from extracted tarball root (contains bin/replay-engine).
 set -euo pipefail
 
+OPT_PREFIX="/opt/instant-replay"
 DIR="$(cd "$(dirname "$0")" && pwd)"
-# Dist tarball: install-on-pi.sh at package root next to bin/
+
 if [ -x "$DIR/bin/replay-engine" ]; then
   PKG_ROOT="$DIR"
 else
-  echo "Run from extracted package root (contains bin/replay-engine), e.g.:" >&2
-  echo "  cd dist/InstantReplay-*-pi5-aarch64 && ./install-on-pi.sh" >&2
+  echo "Run from package root (contains bin/replay-engine)." >&2
   exit 1
 fi
 
 RUN_USER="${1:-${SUDO_USER:-$USER}}"
 if [ -z "$RUN_USER" ] || [ "$RUN_USER" = "root" ]; then
-  RUN_USER="$(logname 2>/dev/null || echo pi)"
+  RUN_USER="$(logname 2>/dev/null || echo admin)"
 fi
 
-echo "==> Installing Instant Replay for user: $RUN_USER"
+if ! id "$RUN_USER" &>/dev/null; then
+  echo "User '$RUN_USER' does not exist." >&2
+  exit 1
+fi
 
-sudo cp "$PKG_ROOT/bin/replay-engine" /usr/local/bin/
-sudo cp "$PKG_ROOT/bin/instant-replay" /usr/local/bin/
-sudo chmod +x /usr/local/bin/replay-engine /usr/local/bin/instant-replay
+echo "==> Installing Instant Replay to $OPT_PREFIX (user: $RUN_USER)"
+
+sudo mkdir -p "$OPT_PREFIX"
+sudo cp -a "$PKG_ROOT"/. "$OPT_PREFIX/"
+sudo chmod +x "$OPT_PREFIX/bin/replay-engine" \
+  "$OPT_PREFIX/scripts/"*.sh 2>/dev/null || true
+
+sudo ln -sf "$OPT_PREFIX/bin/replay-engine" /usr/local/bin/replay-engine
+if [ -x "$OPT_PREFIX/bin/instant-replay" ]; then
+  sudo ln -sf "$OPT_PREFIX/bin/instant-replay" /usr/local/bin/instant-replay
+fi
 
 sudo mkdir -p /etc/instant-replay /var/lib/instant-replay /usr/share/instant-replay
 if [ ! -f /etc/instant-replay/config.toml ]; then
-  if [ -f "$PKG_ROOT/etc/instant-replay/config.toml.example" ]; then
-    sudo cp "$PKG_ROOT/etc/instant-replay/config.toml.example" /etc/instant-replay/config.toml
+  if [ -f "$OPT_PREFIX/etc/instant-replay/config.toml.example" ]; then
+    sudo cp "$OPT_PREFIX/etc/instant-replay/config.toml.example" /etc/instant-replay/config.toml
   fi
 fi
+sudo cp -f "$OPT_PREFIX/etc/instant-replay/config.toml.example" /usr/share/instant-replay/ 2>/dev/null || true
 
-sudo cp "$PKG_ROOT/systemd/replay-engine.service" /etc/systemd/system/
-sudo cp "$PKG_ROOT/systemd/instant-replay-kiosk.service" /etc/systemd/system/
+sudo cp "$OPT_PREFIX/systemd/replay-engine.service" /etc/systemd/system/
+sudo cp "$OPT_PREFIX/systemd/instant-replay-kiosk.service" /etc/systemd/system/
 
-if [ -f "$PKG_ROOT/replay-engine.default" ]; then
-  sudo cp "$PKG_ROOT/replay-engine.default" /etc/default/replay-engine
+if [ -f "$OPT_PREFIX/replay-engine.default" ]; then
+  sudo cp "$OPT_PREFIX/replay-engine.default" /etc/default/replay-engine
 fi
 if ! grep -q INSTANT_REPLAY_V4L2_IO_MODE /etc/default/replay-engine 2>/dev/null; then
   echo 'INSTANT_REPLAY_V4L2_IO_MODE=dmabuf' | sudo tee -a /etc/default/replay-engine >/dev/null
 fi
 
-for desk in \
-  "$PKG_ROOT/packaging/pi/instant-replay.desktop" \
-  "$PKG_ROOT/share/instant-replay.desktop"; do
-  if [ -f "$desk" ]; then
-    sudo cp "$desk" /usr/share/instant-replay/instant-replay.desktop
-    break
-  fi
-done
+# Single drop-in: correct user + binary path (fixes v0.1.0 User=pi and /usr/bin/instant-replay bugs).
+sudo mkdir -p /etc/systemd/system/replay-engine.service.d
+sudo rm -f /etc/systemd/system/replay-engine.service.d/user.conf
+sudo tee /etc/systemd/system/replay-engine.service.d/override.conf >/dev/null <<EOF
+[Service]
+User=$RUN_USER
+ExecStart=
+ExecStart=$OPT_PREFIX/bin/replay-engine --appliance
+Environment=GST_PLUGIN_PATH=/usr/lib/aarch64-linux-gnu/gstreamer-1.0
+EOF
 
-if [ -f "$PKG_ROOT/scripts/start-instant-replay-ui.sh" ]; then
-  sudo cp "$PKG_ROOT/scripts/start-instant-replay-ui.sh" /usr/local/bin/start-instant-replay-ui
-  sudo chmod +x /usr/local/bin/start-instant-replay-ui
+sudo mkdir -p /etc/systemd/system/instant-replay-kiosk.service.d
+sudo rm -f /etc/systemd/system/instant-replay-kiosk.service.d/user.conf
+sudo tee /etc/systemd/system/instant-replay-kiosk.service.d/override.conf >/dev/null <<EOF
+[Service]
+User=$RUN_USER
+Environment=DISPLAY=:0
+EOF
+
+if [ -f "$OPT_PREFIX/share/instant-replay.desktop" ] || [ -f "$OPT_PREFIX/packaging/pi/instant-replay.desktop" ]; then
+  desk="$OPT_PREFIX/share/instant-replay.desktop"
+  [ -f "$desk" ] || desk="$OPT_PREFIX/packaging/pi/instant-replay.desktop"
+  sudo cp "$desk" /usr/share/applications/instant-replay.desktop
+  home="$(getent passwd "$RUN_USER" | cut -d: -f6)"
+  if [ -n "$home" ]; then
+    sudo mkdir -p "$home/Desktop"
+    sudo cp /usr/share/applications/instant-replay.desktop "$home/Desktop/"
+    sudo chown "$RUN_USER:$RUN_USER" "$home/Desktop/instant-replay.desktop"
+    sudo chmod +x "$home/Desktop/instant-replay.desktop"
+  fi
 fi
 
-ENABLE_SCRIPT=""
-for s in "$PKG_ROOT/scripts/enable-appliance-autostart.sh" "$DIR/scripts/enable-appliance-autostart.sh"; do
-  if [ -f "$s" ]; then
-    ENABLE_SCRIPT="$s"
-    sudo cp "$s" /usr/local/bin/enable-instant-replay-autostart
-    sudo chmod +x /usr/local/bin/enable-instant-replay-autostart
-    break
-  fi
-done
+[ -f "$OPT_PREFIX/scripts/enable-appliance-autostart.sh" ] && \
+  sudo ln -sf "$OPT_PREFIX/scripts/enable-appliance-autostart.sh" /usr/local/bin/enable-instant-replay-autostart
+[ -f "$OPT_PREFIX/scripts/start-instant-replay-ui.sh" ] && \
+  sudo ln -sf "$OPT_PREFIX/scripts/start-instant-replay-ui.sh" /usr/local/bin/start-instant-replay-ui
+[ -f "$OPT_PREFIX/scripts/doctor-pi.sh" ] && \
+  sudo ln -sf "$OPT_PREFIX/scripts/doctor-pi.sh" /usr/local/bin/doctor-pi
 
-echo "==> Binaries and systemd units installed"
-if [ -n "$ENABLE_SCRIPT" ]; then
-  "$ENABLE_SCRIPT" "$RUN_USER"
+sudo chown -R "$RUN_USER:$RUN_USER" /var/lib/instant-replay
+
+sudo systemctl daemon-reload
+sudo systemctl enable replay-engine instant-replay-kiosk
+
+if systemctl is-active --quiet graphical.target 2>/dev/null; then
+  sudo systemctl restart replay-engine
+  sleep 2
+  sudo systemctl restart instant-replay-kiosk 2>/dev/null || true
 else
-  echo "Run autostart setup: ./scripts/enable-appliance-autostart.sh $RUN_USER"
+  sudo systemctl start replay-engine 2>/dev/null || true
+fi
+
+echo ""
+echo "=============================================="
+echo " Instant Replay installed"
+echo "  Prefix:  $OPT_PREFIX"
+echo "  User:    $RUN_USER"
+echo "  Config:  /etc/instant-replay/config.toml"
+echo "  Touch:   http://127.0.0.1:8080"
+echo ""
+echo "  Set Desktop Autologin → $RUN_USER, then: sudo reboot"
+echo "  Status:  systemctl status replay-engine"
+echo "  Logs:    journalctl -u replay-engine -f"
+echo "=============================================="
+
+if curl -sfS --max-time 5 http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
+  echo "HTTP health: OK"
+else
+  echo "HTTP not ready yet — check: journalctl -u replay-engine -n 40"
 fi

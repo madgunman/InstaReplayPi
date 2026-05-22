@@ -13,6 +13,7 @@ set -euo pipefail
 
 REPO="https://github.com/madgunman/InstaReplayPi.git"
 REPO_SLUG="madgunman/InstaReplayPi"
+INSTANT_REPLAY_BRANCH="${INSTANT_REPLAY_BRANCH:-main}"
 INSTALL_DIR="${INSTANT_REPLAY_INSTALL_DIR:-$HOME/InstaReplayPi}"
 MODE="release"
 TAG=""
@@ -67,8 +68,11 @@ install_release() {
     echo "Tarball layout unexpected" >&2
     exit 1
   fi
-  log "Running install-on-pi.sh (with autostart)"
-  (cd "$dir" && ./install-on-pi.sh "$(logname 2>/dev/null || echo "${USER:-pi}")")
+  log "Running install-on-pi.sh"
+  curl -fsSL "https://raw.githubusercontent.com/${REPO_SLUG}/${INSTANT_REPLAY_BRANCH:-main}/scripts/install-on-pi.sh" \
+    -o "$dir/install-on-pi.sh"
+  chmod +x "$dir/install-on-pi.sh"
+  (cd "$dir" && sudo ./install-on-pi.sh "$(logname 2>/dev/null || echo "${USER:-admin}")")
   rm -rf "$tmp"
 }
 
@@ -88,7 +92,10 @@ install_build() {
   (cd "$INSTALL_DIR" && ./scripts/package-pi.sh)
   local dir
   dir="$(find "$INSTALL_DIR/dist" -maxdepth 1 -type d -name 'InstantReplay-*-pi5-aarch64' | head -1)"
-  (cd "$dir" && ./install-on-pi.sh "$(logname 2>/dev/null || echo "${USER:-pi}")")
+  curl -fsSL "https://raw.githubusercontent.com/${REPO_SLUG}/${INSTANT_REPLAY_BRANCH}/scripts/install-on-pi.sh" \
+    -o "$dir/install-on-pi.sh"
+  chmod +x "$dir/install-on-pi.sh"
+  (cd "$dir" && sudo ./install-on-pi.sh "$(logname 2>/dev/null || echo "${USER:-admin}")")
 }
 
 case "$MODE" in

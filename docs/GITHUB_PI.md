@@ -1,42 +1,51 @@
 # GitHub — Pi install from [InstaReplayPi](https://github.com/madgunman/InstaReplayPi)
 
-**https://github.com/madgunman/InstaReplayPi.git**
+## One command (recommended)
 
-## On the Pi (release v0.1.0+)
+On the Pi as user **admin** (not root):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-from-github.sh -o /tmp/install-ir.sh
-chmod +x /tmp/install-ir.sh
-/tmp/install-ir.sh --release
+curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
 ```
 
-Install runs `install-on-pi.sh` + **Option B autostart** (`enable-appliance-autostart.sh`) for your username.
+This will:
 
-Then:
+1. Install apt packages (GStreamer, Chromium)
+2. Download the latest **release** binary (`pi5-aarch64` tarball)
+3. Install to `/opt/instant-replay`
+4. Fix systemd (`User=admin`, correct binary path)
+5. Enable engine + touch kiosk at boot
 
-1. `sudo nano /etc/instant-replay/config.toml` (camera + SSD buffer path)
-2. **Desktop Autologin** for your user (`admin`, etc.)
-3. `sudo reboot`
+Then set **Desktop Autologin** → your user → `sudo reboot`.
 
-## Build on Pi
+### Options
 
 ```bash
-git clone https://github.com/madgunman/InstaReplayPi.git ~/InstaReplayPi
-cd ~/InstaReplayPi
-./scripts/install-from-github.sh --build
+INSTANT_REPLAY_USER=admin INSTANT_REPLAY_TAG=v0.1.0 \
+  curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
 ```
 
-## Autostart script only
+Until `v0.1.1` is released, `v0.1.0` binary + latest `install-on-pi.sh` from GitHub is fine.
+
+## Fix existing broken install (v0.1.0)
 
 ```bash
-./scripts/enable-appliance-autostart.sh admin
+curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
 ```
 
-Branch `feature/appliance-autostart` adds this to the default install path.
-
-## Updating
+Or only re-apply systemd:
 
 ```bash
-/tmp/install-ir.sh --release v0.2.0
-sudo systemctl restart replay-engine instant-replay-kiosk
+curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/enable-appliance-autostart.sh -o /tmp/e.sh
+chmod +x /tmp/e.sh
+/tmp/e.sh admin
+```
+
+## After install
+
+```bash
+sudo nano /etc/instant-replay/config.toml
+systemctl status replay-engine
+curl -s http://127.0.0.1:8080/api/health
+doctor-pi
 ```

@@ -5,13 +5,12 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-# Wrapper sets GST_PLUGIN_PATH (see packaging/lib/gstreamer-env.sh)
-ExecStart=/usr/bin/instant-replay --appliance
+ExecStart=/opt/instant-replay/bin/replay-engine --appliance
+Environment=GST_PLUGIN_PATH=/usr/lib/aarch64-linux-gnu/gstreamer-1.0
 Restart=always
 RestartSec=3
 StartLimitIntervalSec=0
 EnvironmentFile=-/etc/default/replay-engine
-# Set User= in a drop-in for venue accounts (e.g. User=pi on Raspberry Pi).
 StandardOutput=journal
 StandardError=journal
 

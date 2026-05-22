@@ -5,7 +5,6 @@ Wants=replay-engine.service
 
 [Service]
 Type=simple
-User=pi
 Environment=DISPLAY=:0
 ExecStart=/usr/bin/chromium --kiosk --noerrdialogs --disable-infobars --app=http://127.0.0.1:8080/
 Restart=on-failure
