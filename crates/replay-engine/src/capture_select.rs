@@ -3,12 +3,14 @@
 use anyhow::{Context, Result};
 use replay_core::config::InputConfig;
 use replay_core::types::{DisplayInfo, VideoFormat};
-use tracing::warn;
+use tracing::{info, warn};
 
 use crate::devices::CaptureDevice;
 use crate::format_probe;
 
 const MIN_CAPTURE_EDGE: i32 = 640;
+const MAX_CAPTURE_DIM: i32 = 3840;
+const MAX_CAPTURE_FPS: i32 = 120;
 
 /// Resolved capture parameters ready for `start_live`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,6 +40,15 @@ pub fn usable_formats(device_id: &str) -> Vec<VideoFormat> {
     format_probe::probe_formats(device_id)
         .into_iter()
         .filter(|f| f.width >= MIN_CAPTURE_EDGE || f.height >= MIN_CAPTURE_EDGE)
+        .filter(|f| f.width <= MAX_CAPTURE_DIM && f.height <= MAX_CAPTURE_DIM)
+        .filter(|f| {
+            let fps = if f.fps_den > 0 {
+                f.fps_num / f.fps_den
+            } else {
+                0
+            };
+            fps <= MAX_CAPTURE_FPS
+        })
         .filter(|f| !is_grey_only_small(f))
         .collect()
 }
@@ -316,13 +327,22 @@ fn build_resolved(device_id: &str, input: &InputConfig, formats: &[VideoFormat])
         pixel_format
     };
 
-    ResolvedInput {
+    let resolved = ResolvedInput {
         device_id: device_id.to_string(),
         width,
         height,
         fps,
         pixel_format,
-    }
+    };
+    info!(
+        device_id = %resolved.device_id,
+        width = resolved.width,
+        height = resolved.height,
+        fps = resolved.fps,
+        pixel_format = %resolved.pixel_format,
+        "Resolved capture input"
+    );
+    resolved
 }
 
 pub fn resolve_output_display(
@@ -389,5 +409,25 @@ mod tests {
     fn grey_small_format_filtered() {
         assert!(is_grey_only_small(&fmt(340, 340, 30, "GREY")));
         assert!(!is_grey_only_small(&fmt(1280, 720, 30, "MJPEG")));
+    }
+
+    #[test]
+    fn oversize_format_rejected_by_usable_filter() {
+        let huge = fmt(4096, 2160, 30, "MJPEG");
+        let formats = vec![huge.clone(), fmt(1920, 1080, 30, "MJPEG")];
+        let filtered: Vec<_> = formats
+            .into_iter()
+            .filter(|f| f.width <= MAX_CAPTURE_DIM && f.height <= MAX_CAPTURE_DIM)
+            .filter(|f| {
+                let fps = if f.fps_den > 0 {
+                    f.fps_num / f.fps_den
+                } else {
+                    0
+                };
+                fps <= MAX_CAPTURE_FPS
+            })
+            .collect();
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].width, 1920);
     }
 }

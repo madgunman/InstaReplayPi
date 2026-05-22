@@ -3,6 +3,8 @@ use std::time::Instant;
 
 use clap::Parser;
 use replay_core::config::AppConfig;
+use tokio::signal;
+use replay_engine::capture_select;
 use replay_engine::control_api::ControlApi;
 use replay_engine::controller::{EngineController, StatusSnapshot};
 use replay_engine::hotkeys;
@@ -25,6 +27,14 @@ struct Args {
     /// No native operator window (CI / headless).
     #[arg(long)]
     no_ui: bool,
+
+    /// List V4L2 capture devices and supported formats, then exit.
+    #[arg(long)]
+    list_devices: bool,
+
+    /// Enable loopback HTTP API on 127.0.0.1 (default on with --test or --appliance).
+    #[arg(long)]
+    http_api: bool,
 }
 
 fn build_program_handle(
@@ -54,10 +64,52 @@ fn build_program_handle(
     }
 }
 
+fn print_capture_devices() {
+    let devices = capture_select::discover_capture_devices();
+    if devices.is_empty() {
+        println!("No USB capture devices found.");
+        return;
+    }
+    for dev in devices {
+        println!("{} ({})", dev.display_name, dev.id);
+        for fmt in capture_select::usable_formats(&dev.id) {
+            println!(
+                "  {}×{} @ {} {} ({} fps)",
+                fmt.width,
+                fmt.height,
+                fmt.pixel_format,
+                if fmt.fps_den > 0 {
+                    fmt.fps_num / fmt.fps_den.max(1)
+                } else {
+                    0
+                },
+                fmt.fps_num
+            );
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     logging::init();
     let args = Args::parse();
+
+    if args.list_devices {
+        print_capture_devices();
+        return Ok(());
+    }
+
+    let _engine_lock = match replay_engine::singleton::EngineLock::acquire() {
+        Ok(lock) => Some(lock),
+        Err(replay_engine::singleton::LockError::AlreadyRunning) => {
+            eprintln!("{}", replay_engine::singleton::ALREADY_RUNNING_MSG);
+            std::process::exit(2);
+        }
+        Err(replay_engine::singleton::LockError::Io(e)) => {
+            tracing::warn!(error = %e, "Engine lock unavailable — continuing (dev/CI)");
+            None
+        }
+    };
 
     let mut config = AppConfig::load().unwrap_or_default();
 
@@ -104,6 +156,16 @@ async fn main() -> anyhow::Result<()> {
     replay_engine::device_watch::spawn_device_watch(controller.clone(), args.test);
 
     let api = ControlApi::new(controller.clone());
+
+    let http_on = replay_engine::http_api::http_enabled_by_default(
+        args.test,
+        args.appliance || config.appliance.enabled,
+        args.http_api,
+    );
+    if http_on {
+        let port = replay_engine::http_api::http_port_from_env();
+        replay_engine::http_api::spawn(api.clone(), port).await?;
+    }
 
     hotkeys::spawn_hotkey_handler(api.clone(), config.hotkeys.clone(), rt_handle.clone());
 
@@ -202,7 +264,8 @@ async fn main() -> anyhow::Result<()> {
                         }
                         Err(e) => {
                             tracing::warn!(error = %e, "Operator command failed");
-                            show_toast(&toast_cmds, e.to_string(), true);
+                            let msg = replay_engine::devices::short_operator_error(&e.to_string());
+                            show_toast(&toast_cmds, msg, true);
                         }
                     }
                 }
@@ -243,6 +306,19 @@ async fn main() -> anyhow::Result<()> {
     } else {
         info!("Running without operator UI (keyboard hotkeys only)");
     }
-    std::future::pending::<()>().await;
+
+    let mut sigterm = signal::unix::signal(signal::unix::SignalKind::terminate())?;
+    let mut sigint = signal::unix::signal(signal::unix::SignalKind::interrupt())?;
+
+    tokio::select! {
+        _ = sigterm.recv() => {
+            info!("SIGTERM received — shutting down");
+        }
+        _ = sigint.recv() => {
+            info!("SIGINT received — shutting down");
+        }
+    }
+
+    api.controller().shutdown().await;
     Ok(())
 }

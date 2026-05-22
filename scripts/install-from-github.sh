@@ -114,4 +114,4 @@ echo "  Manual UI shortcut: start-instant-replay-ui"
 if [ -x "$INSTALL_DIR/scripts/doctor-pi.sh" ]; then
   echo "  Health: $INSTALL_DIR/scripts/doctor-pi.sh"
 fi
-echo "  Touch UI: http://127.0.0.1:8080"
+echo "  Operator: native egui window on Pi touch (not a browser)"

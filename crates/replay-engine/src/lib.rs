@@ -1,7 +1,9 @@
 pub mod capture_select;
+pub mod singleton;
 pub mod chunk_index_actor;
 pub mod chunk_registry;
 pub mod control_api;
+pub mod http_api;
 pub mod controller;
 pub mod device_monitor;
 pub mod devices;

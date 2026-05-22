@@ -1,4 +1,4 @@
-//! Shared control facade for hotkeys, HTTP, and future GPIO.
+//! Shared control facade for hotkeys, loopback HTTP, operator UI, and future GPIO.
 
 use std::sync::Arc;
 

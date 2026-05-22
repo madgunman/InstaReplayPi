@@ -32,13 +32,9 @@ chmod +x /tmp/enable-ir.sh
 
 Or: `sudo enable-instant-replay-autostart admin` (after package install).
 
-## Manual touch UI (desktop icon)
+## Desktop icon
 
-Menu **Instant Replay** or:
-
-```bash
-start-instant-replay-ui
-```
+The Pi desktop shortcut runs **`doctor-pi`** (health check), not a second engine. Production UI comes from **`replay-engine.service`** only.
 
 ## Config
 
@@ -47,9 +43,10 @@ start-instant-replay-ui
 ## Verify
 
 ```bash
-systemctl status replay-engine instant-replay-kiosk
-curl -s http://127.0.0.1:8080/api/health
-./scripts/doctor-pi.sh   # from cloned repo
+systemctl status replay-engine
+pgrep -c -x replay-engine    # expect 1
+replay-engine --list-devices
+./scripts/doctor-pi.sh
 ```
 
 ## Sign-off

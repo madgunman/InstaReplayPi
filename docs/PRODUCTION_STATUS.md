@@ -12,7 +12,8 @@
 
 | Surface | v1 |
 |---------|-----|
-| Touch UI (`127.0.0.1:8080`) | Yes |
+| Native egui touch UI | Yes |
+| Loopback HTTP (`127.0.0.1:8080`) | Yes (acceptance / soak only) |
 | USB keyboard hotkeys | Yes |
 | GPIO | v1.1 backlog |
 | Flutter / gRPC | Removed |

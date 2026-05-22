@@ -21,12 +21,15 @@ fi
 
 sudo mkdir -p /etc/systemd/system/replay-engine.service.d
 sudo rm -f /etc/systemd/system/replay-engine.service.d/user.conf
+RUN_UID="$(id -u "$RUN_USER")"
 sudo tee /etc/systemd/system/replay-engine.service.d/override.conf >/dev/null <<EOF
 [Service]
 User=$RUN_USER
 ExecStart=
 ExecStart=$ENGINE_BIN --appliance
 Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=/run/user/$RUN_UID
+Environment=XDG_SESSION_TYPE=x11
 Environment=GST_PLUGIN_PATH=/usr/lib/aarch64-linux-gnu/gstreamer-1.0
 EOF
 

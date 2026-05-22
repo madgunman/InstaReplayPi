@@ -42,7 +42,7 @@
 | 4 | Replay last @ 0.5× | | |
 | 5 | Mark → replay from mark @ 0.5× | | |
 | 6 | Return live; **L** interrupt | | keyboard |
-| 7 | Touch UI Mark/Replay/Live | | http://127.0.0.1:8080 |
+| 7 | Touch UI Mark/Replay/Live | | Native egui operator window |
 | 8 | Hotkeys without touch focus | | appliance + desktop session |
 | 9 | 60 min soak on Pi | | thermal / OOM |
 | 10 | Disconnect no crash | | |

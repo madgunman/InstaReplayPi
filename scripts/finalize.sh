@@ -21,7 +21,7 @@ cargo test --workspace
 log "Build release engine"
 cargo build -p replay-engine --release
 
-log "MVP automated acceptance (HTTP)"
+log "MVP automated acceptance (tests + HTTP via mvp_accept-full.sh)"
 chmod +x scripts/mvp_accept-full.sh scripts/mvp_accept.sh
 ./scripts/mvp_accept-full.sh
 

@@ -12,6 +12,22 @@ ok() { echo "OK: $*"; }
 echo "Instant Replay Pi doctor"
 echo "========================"
 
+PROC_COUNT="$(pgrep -c -x replay-engine 2>/dev/null || echo 0)"
+if [ "$PROC_COUNT" -eq 1 ]; then
+  ok "Exactly one replay-engine process"
+elif [ "$PROC_COUNT" -eq 0 ]; then
+  warn "No replay-engine process (service may be stopped)"
+else
+  fail "Multiple replay-engine processes ($PROC_COUNT) — stop extras: sudo systemctl stop replay-engine; sudo pkill -x replay-engine"
+  pgrep -a -x replay-engine 2>/dev/null || true
+fi
+
+if [ -f /run/instant-replay/replay-engine.lock ]; then
+  ok "Engine lock file present"
+else
+  warn "No engine lock file (expected when service is running)"
+fi
+
 if [ "$(uname -m)" != "aarch64" ]; then
   warn "Not aarch64 ($(uname -m)) — intended for Raspberry Pi 5"
 fi
@@ -24,6 +40,11 @@ if command -v gst-inspect-1.0 >/dev/null 2>&1; then
       fail "Missing GStreamer plugin: $plug"
     fi
   done
+  if gst-inspect-1.0 vah264enc >/dev/null 2>&1; then
+    ok "Hardware buffer encoder vah264enc (preferred on Pi)"
+  elif [ "$(uname -m)" = "aarch64" ]; then
+    warn "vah264enc not found — buffer will use x264enc (higher CPU at 1080p60)"
+  fi
 else
   fail "gst-inspect-1.0 not found"
 fi

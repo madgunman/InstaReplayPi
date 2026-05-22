@@ -35,14 +35,15 @@ One process (`replay-engine`). No gRPC, no Flutter, no browser.
 |--------|------|
 | Native operator UI | egui on Pi touch → `ControlApi` |
 | Keyboard | `global-hotkey` → `ControlApi` |
+| Loopback HTTP (`127.0.0.1:8080`) | Acceptance / soak scripts → `ControlApi` |
 | GPIO (v1.1) | `gpio.rs` stub → `ControlApi` |
 
 `ControlApi` wraps `EngineController` (mark, replay, status, diagnostics).
 
 ## GStreamer
 
-- **Live + buffer:** `v4l2src` (or `videotestsrc` with `--test`) → `tee` → program sink + `splitmuxsink` MPEG-TS chunks (~1 s)
-- **Replay:** separate pipeline; `playbin` at 0.5× (concat for multi-segment)
+- **Live + buffer:** `v4l2src` (or `videotestsrc` with `--test`) → `tee` → program sink + `splitmuxsink` MKV chunks (`matroskamux`, ~1 s)
+- **Replay:** replay bin into `input-selector`; 0.5× seek on single segment; multi-segment concat may play 1.0×
 - **Threading:** GStreamer on dedicated runtime thread; UI on dedicated winit thread
 
 ## State machine (`replay-core`)
@@ -53,7 +54,7 @@ Signal loss → `NoSignal`.
 
 ## Buffer
 
-`index.json` + TS chunks under `/var/lib/instant-replay/buffer`. Mark uses monotonic timestamp (~1 s chunk granularity).
+`index.json` + `chunk_*.mkv` under `/var/lib/instant-replay/buffer`. Mark uses buffer timeline (~1 s chunk granularity).
 
 ## Config
 

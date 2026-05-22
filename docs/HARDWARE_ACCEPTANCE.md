@@ -27,19 +27,16 @@ Pre-match on device:
 ./scripts/doctor-pi.sh
 ```
 
-## Manual checklist
+## Manual checklist (InstaReplay1 / v0.3.1)
 
-1. UVC device listed (`/api/devices` or `v4l2-ctl --list-devices`)
-2. Live fullscreen on audience HDMI at venue frame rate
-3. Buffer writes to SSD; no sustained disk errors
-4. Mark → replay at 0.5× returns to live
-5. Replay last (Space / touch button)
-6. **L** interrupts replay
-7. Touch UI gates (Mark disabled until buffer ready)
-8. Keyboard hotkeys without browser focus
-9. HDMI disconnect → **NO SIGNAL**, no crash
-10. 60 min soak — stable memory, no OOM
-11. Reboot → autostart live without manual commands
+1. `pgrep -c -x replay-engine` → **1** after boot
+2. `./scripts/doctor-pi.sh` → PASS
+3. BRIO or UVC plugged → **LIVE** with `device_id = "auto"` (no config edit)
+4. Banner **Hold 3s** or Setup PIN unlocks technician panel
+5. Apply → 1080p30 MJPEG → HDMI live, **no flicker for 60 s**
+6. Mark → Replay works; **L** interrupts replay
+7. Buffer on USB3 SSD; Mark disabled until buffer ready
+8. Reboot → `systemctl` autostart only (do not launch a second engine from desktop)
 
 ## GPIO
 

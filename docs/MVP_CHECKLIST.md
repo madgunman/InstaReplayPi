@@ -21,7 +21,7 @@ Sign-off: **[acceptance/RESULTS-pi.md](acceptance/RESULTS-pi.md)**
 | 4 | Replay last at 0.5× | HTTP | Visual |
 | 5 | Mark → replay at 0.5× | HTTP | Visual |
 | 6 | Return live; **L** interrupt | HTTP | Keyboard |
-| 7 | Touch UI Mark/Replay/Live | HTTP gates | Pi 7" kiosk |
+| 7 | Touch UI Mark/Replay/Live | — | Pi 7" egui kiosk |
 | 8 | Keyboard without browser focus | — | M/R/Space/L/C |
 | 9 | 60 min soak | `soak_test.sh` | On Pi hardware |
 | 10 | Disconnect no crash | — | Unplug HDMI |

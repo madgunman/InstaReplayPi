@@ -179,9 +179,7 @@ fn paint_operator_ui(
     let (banner_bg, banner_text) = state_colors(status.state);
 
     egui::TopBottomPanel::top("banner").show(ctx, |ui| {
-        let rect = ui.max_rect();
-        let response = ui.interact(rect, ui.id().with("banner_press"), Sense::click());
-        handle_banner_press(setup, op_cfg, response.is_pointer_button_down_on(), test_mode);
+        let banner_rect = ui.max_rect();
 
         egui::Frame::default()
             .fill(banner_bg)
@@ -205,14 +203,33 @@ fn paint_operator_ui(
                     );
                     ui.label(RichText::new(detail).size(14.0).color(Color32::WHITE));
                     if !setup.is_unlocked() {
-                        ui.label(
-                            RichText::new("Hold banner 3s or Unlock setup for technician")
-                                .size(11.0)
-                                .color(Color32::LIGHT_GRAY),
+                        let hold_btn = ui.add(
+                            egui::Button::new("Hold 3s to unlock")
+                                .min_size(egui::vec2(200.0, 36.0)),
+                        );
+                        handle_banner_press(
+                            setup,
+                            op_cfg,
+                            hold_btn.is_pointer_button_down_on(),
+                            test_mode,
                         );
                     }
                 });
             });
+
+        if !setup.is_unlocked() {
+            let press = ui.interact(
+                banner_rect,
+                ui.id().with("banner_press"),
+                Sense::click(),
+            );
+            handle_banner_press(
+                setup,
+                op_cfg,
+                press.is_pointer_button_down_on(),
+                test_mode,
+            );
+        }
     });
 
     egui::TopBottomPanel::bottom("setup_panel")

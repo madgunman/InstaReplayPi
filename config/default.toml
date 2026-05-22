@@ -18,6 +18,7 @@ default_replay_seconds = 10
 chunk_seconds = 1
 speed = 0.5
 mode = "marked"
+buffer_encoder = "auto"
 
 [storage]
 buffer_path = "/var/lib/instant-replay/buffer"

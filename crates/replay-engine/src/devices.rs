@@ -80,18 +80,35 @@ pub fn to_video_devices(devices: &[CaptureDevice]) -> Vec<VideoDevice> {
 
 pub fn live_start_error_hint(raw: &str) -> String {
     let lower = raw.to_lowercase();
-    if lower.contains("permission") || lower.contains("denied") {
-        return format!(
-            "{raw}\n\nCheck UVC device permissions (groups: video) and unlock Setup to pick the camera."
-        );
+    if lower.contains("32768") {
+        return "Invalid capture mode — unlock Setup, pick 1080p MJPEG".into();
     }
     if lower.contains("not-negotiated") || lower.contains("negotiat") {
-        return format!(
-            "{raw}\n\nTry MJPEG, 1280x720 @ 30, or another device in Setup (PIN / long-press banner)."
-        );
+        return "Format not supported — try MJPEG 1080p30 in Setup".into();
+    }
+    if lower.contains("no element") || lower.contains("no such element") {
+        return "GStreamer plugin missing — run doctor-pi on the Pi".into();
+    }
+    if lower.contains("capture not running") {
+        return "Capture not running — wait or unlock Setup to retry".into();
+    }
+    if lower.contains("permission") || lower.contains("denied") {
+        return "Camera permission denied — add user to video group".into();
     }
     if lower.contains("no usb capture") || lower.contains("no capture device") {
-        return format!("{raw}\n\nConnect a webcam or HDMI capture card on USB 3, then Refresh in Setup.");
+        return "No USB capture device — plug in webcam or HDMI card".into();
     }
-    raw.to_string()
+    raw.lines().next().unwrap_or(raw).trim().to_string()
+}
+
+/// Operator banner / toast — one line, max ~80 chars; full detail stays in journal.
+pub fn short_operator_error(raw: &str) -> String {
+    let hint = live_start_error_hint(raw);
+    let line = hint.lines().next().unwrap_or(&hint).trim();
+    if line.chars().count() <= 80 {
+        line.to_string()
+    } else {
+        let truncated: String = line.chars().take(77).collect();
+        format!("{truncated}…")
+    }
 }

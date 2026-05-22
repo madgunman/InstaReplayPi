@@ -3,7 +3,8 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/uninstall-instant-replay.sh | bash
 #
-# Env:
+# Env (pipe to bash):
+#   curl -fsSL .../uninstall-instant-replay.sh | INSTANT_REPLAY_PURGE_CONFIG=1 bash
 #   INSTANT_REPLAY_PURGE_CONFIG=1  — also remove /etc/instant-replay
 #   INSTANT_REPLAY_PURGE_DATA=1    — also remove /var/lib/instant-replay
 set -euo pipefail
@@ -24,6 +25,7 @@ sudo systemctl stop instant-replay-kiosk.service 2>/dev/null || true
 sudo systemctl disable instant-replay-kiosk.service 2>/dev/null || true
 sudo pkill -x replay-engine 2>/dev/null || true
 sleep 1
+sudo rm -f /run/instant-replay/replay-engine.lock 2>/dev/null || true
 
 log "Removing install tree and systemd units..."
 sudo rm -rf "$OPT_PREFIX"

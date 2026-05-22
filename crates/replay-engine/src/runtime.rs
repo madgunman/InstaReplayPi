@@ -1,6 +1,6 @@
 use std::sync::atomic::AtomicU64;
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
@@ -48,12 +48,14 @@ pub enum RuntimeCommand {
     SignalRestored {
         reply: Sender<Result<()>>,
     },
-    Shutdown,
+    Shutdown {
+        reply: Sender<Result<()>>,
+    },
 }
 
 pub struct GstreamerRuntime {
     tx: Sender<RuntimeCommand>,
-    _handle: JoinHandle<()>,
+    handle: Mutex<Option<JoinHandle<()>>>,
     program: ProgramOutputHandle,
 }
 
@@ -68,7 +70,7 @@ impl GstreamerRuntime {
             .expect("spawn gstreamer runtime");
         Self {
             tx,
-            _handle: handle,
+            handle: Mutex::new(Some(handle)),
             program,
         }
     }
@@ -82,8 +84,19 @@ impl GstreamerRuntime {
             .expect("spawn gstreamer runtime");
         Self {
             tx,
-            _handle: handle,
+            handle: Mutex::new(Some(handle)),
             program,
+        }
+    }
+
+    /// Stop capture, close program window, and join the GStreamer thread.
+    pub fn shutdown(&self) {
+        let (reply_tx, reply_rx) = mpsc::channel();
+        let _ = self.tx.send(RuntimeCommand::Shutdown { reply: reply_tx });
+        let _ = reply_rx.recv();
+        self.program.shutdown();
+        if let Some(handle) = self.handle.lock().unwrap().take() {
+            let _ = handle.join();
         }
     }
 
@@ -189,11 +202,12 @@ fn run_loop(rx: Receiver<RuntimeCommand>, program: ProgramOutputHandle, headless
         let mut running = true;
         while running {
             match rx.recv_timeout(Duration::from_millis(20)) {
-                Ok(RuntimeCommand::Shutdown) => {
+                Ok(RuntimeCommand::Shutdown { reply }) => {
                     if let Some(mut cap) = state.capture.take() {
                         let _ = cap.stop();
                     }
                     program.close_window();
+                    let _ = reply.send(Ok(()));
                     running = false;
                 }
                 Ok(cmd) => dispatch_runtime_command(cmd, &mut state, &program),
@@ -318,6 +332,8 @@ fn dispatch_runtime_command(
                 })();
                 let _ = reply.send(result);
             }
-            RuntimeCommand::Shutdown => {}
+            RuntimeCommand::Shutdown { reply } => {
+                let _ = reply.send(Ok(()));
+            }
         }
 }

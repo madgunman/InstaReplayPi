@@ -1,4 +1,4 @@
-//! Single-threaded owner of `ChunkIndex` — GStreamer bus posts fragments; gRPC mark uses a lock-free snapshot.
+//! Single-threaded owner of `ChunkIndex` — GStreamer bus posts fragments; mark uses a lock-free snapshot.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};

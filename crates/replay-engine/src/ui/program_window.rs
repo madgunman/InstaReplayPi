@@ -14,6 +14,8 @@ use crate::pipeline::program_sink::window_handle_from_winit;
 pub struct ProgramWindowState {
     pub window: Option<Window>,
     pub cached_handle: Option<usize>,
+    pub open_display_id: Option<u32>,
+    pub open_fullscreen: Option<bool>,
     pub pending_open: Option<(u32, bool, Sender<Result<usize>>)>,
     pub pending_list: Option<Sender<Vec<DisplayInfo>>>,
     pub resumed: bool,
@@ -24,6 +26,8 @@ impl ProgramWindowState {
         Self {
             window: None,
             cached_handle: None,
+            open_display_id: None,
+            open_fullscreen: None,
             pending_open: None,
             pending_list: None,
             resumed: false,
@@ -86,6 +90,16 @@ impl ProgramWindowState {
         display_id: u32,
         fullscreen: bool,
     ) -> Result<usize> {
+        if let Some(handle) = self.cached_handle {
+            if self.open_display_id == Some(display_id)
+                && self.open_fullscreen == Some(fullscreen)
+                && self.window.is_some()
+            {
+                info!(display_id, fullscreen, handle, "Reusing program output window");
+                return Ok(handle);
+            }
+        }
+
         let monitors: Vec<_> = self
             .window
             .as_ref()
@@ -135,6 +149,8 @@ impl ProgramWindowState {
         let handle = window_handle_from_winit(&window)?;
         info!(display_id, fullscreen, handle, "Program output window ready");
         self.cached_handle = Some(handle);
+        self.open_display_id = Some(display_id);
+        self.open_fullscreen = Some(fullscreen);
         self.window = Some(window);
         Ok(handle)
     }
@@ -152,5 +168,7 @@ impl ProgramWindowState {
     pub fn close(&mut self) {
         self.window = None;
         self.cached_handle = None;
+        self.open_display_id = None;
+        self.open_fullscreen = None;
     }
 }

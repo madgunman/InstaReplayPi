@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# MVP acceptance smoke tests — requires replay-engine already running with HTTP enabled.
+# MVP acceptance smoke tests — requires replay-engine already running with loopback HTTP on :8080.
+# Start via mvp_accept-full.sh or: replay-engine --test --no-ui  (HTTP enabled by default with --test)
 # Use mvp_accept-full.sh to start/stop the engine automatically.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -292,7 +293,7 @@ log "========================================"
 log ""
 log "Manual hardware checks still required — see docs/HARDWARE_ACCEPTANCE.md"
 log "  - Real UVC / Cam Link at 1080p50/60 on audience HDMI"
-log "  - Touch UI at http://127.0.0.1:8080 and keyboard hotkeys"
+log "  - Native egui touch UI and keyboard hotkeys (HTTP :8080 is acceptance/diagnostics only)"
 log "  - Cable disconnect → NO_SIGNAL"
 log "  - 60 min soak (release gate): SOAK_SECONDS=3600 ./scripts/soak_test.sh"
 log "  - CI soak smoke uses SOAK_SECONDS=120 (see .github/workflows/acceptance.yml)"

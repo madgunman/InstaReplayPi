@@ -55,6 +55,8 @@ pub struct ReplaySettings {
     pub chunk_seconds: u32,
     pub speed: f64,
     pub mode: String,
+    /// Rolling buffer encode: `auto` | `x264` | `vah264` (Pi: prefers vah264enc when available).
+    pub buffer_encoder: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -139,6 +141,7 @@ impl Default for ReplaySettings {
             chunk_seconds: 1,
             speed: 0.5,
             mode: "marked".to_string(),
+            buffer_encoder: "auto".to_string(),
         }
     }
 }

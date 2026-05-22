@@ -1,0 +1,10 @@
+# Copy to /etc/systemd/system/replay-engine.service.d/override.conf
+# Replace USER and UID with your desktop login (install-on-pi.sh does this automatically).
+[Service]
+User=pi
+ExecStart=
+ExecStart=/opt/instant-replay/bin/replay-engine --appliance
+Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=XDG_SESSION_TYPE=x11
+Environment=GST_PLUGIN_PATH=/usr/lib/aarch64-linux-gnu/gstreamer-1.0

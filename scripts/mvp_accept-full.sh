@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MVP acceptance: unit/integration tests + short headless engine smoke (--test --no-ui).
+# MVP acceptance: unit/integration tests + headless engine + HTTP API smoke (mvp_accept.sh).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=/dev/null
@@ -20,17 +20,38 @@ else
   ENGINE="${ROOT}/target/release/replay-engine"
 fi
 
-log "Headless engine smoke (--test --no-ui, 8s)"
-"$ENGINE" --test --no-ui &
+wait_http() {
+  local i=0
+  while [ "$i" -lt 30 ]; do
+    if curl -sfS --max-time 2 "http://127.0.0.1:8080/api/health" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+    i=$((i + 1))
+  done
+  echo "HTTP API did not become ready on :8080" >&2
+  return 1
+}
+
+log "Headless engine with loopback HTTP (--test --no-ui)"
+if [[ "$(uname -s)" == "Linux" ]] && command -v xvfb-run >/dev/null 2>&1; then
+  xvfb-run -a "$ENGINE" --test --no-ui &
+else
+  "$ENGINE" --test --no-ui &
+fi
 ENGINE_PID=$!
-trap 'kill "$ENGINE_PID" 2>/dev/null || true' EXIT
-sleep 8
-if ! kill -0 "$ENGINE_PID" 2>/dev/null; then
-  echo "Engine exited early during smoke test" >&2
+trap 'kill "$ENGINE_PID" 2>/dev/null || true; wait "$ENGINE_PID" 2>/dev/null || true' EXIT
+
+if ! wait_http; then
   exit 1
 fi
-log "Engine smoke: OK (pid $ENGINE_PID)"
+
+log "HTTP MVP acceptance (mvp_accept.sh)"
+chmod +x "$ROOT/scripts/mvp_accept.sh"
+"$ROOT/scripts/mvp_accept.sh"
+
 kill "$ENGINE_PID" 2>/dev/null || true
 wait "$ENGINE_PID" 2>/dev/null || true
+trap - EXIT
 
 log "MVP accept-full: PASS"

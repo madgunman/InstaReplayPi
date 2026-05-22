@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -56,11 +56,12 @@ pub struct EngineController {
     diagnostics: Arc<RwLock<Diagnostics>>,
     sequence: AtomicU64,
     storage_monitor: Arc<Mutex<Option<StorageMonitor>>>,
-    /// Updated from the GStreamer bus when fragments close (lock-free for gRPC).
+    /// Updated from the GStreamer bus when fragments close (lock-free cache).
     buffer_secs_cache: Arc<AtomicU64>,
     replay_finished_tx: mpsc::Sender<()>,
     signal_lost_tx: mpsc::Sender<()>,
     signal_restored_tx: mpsc::Sender<()>,
+    live_start_in_progress: AtomicBool,
 }
 
 /// Receivers for pipeline events — consumed by `spawn_event_handlers`.
@@ -126,6 +127,7 @@ impl EngineController {
             replay_finished_tx,
             signal_lost_tx,
             signal_restored_tx,
+            live_start_in_progress: AtomicBool::new(false),
         };
         let receivers = EngineEventReceivers {
             replay_finished: replay_finished_rx,
@@ -223,6 +225,21 @@ impl EngineController {
         let config = cfg.clone();
         drop(cfg);
         let buffer_path = config.storage.buffer_path.clone();
+
+        if self
+            .live_start_in_progress
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Relaxed)
+            .is_err()
+        {
+            anyhow::bail!("live start already in progress");
+        }
+        struct StartGuard<'a>(&'a AtomicBool);
+        impl Drop for StartGuard<'_> {
+            fn drop(&mut self) {
+                self.0.store(false, Ordering::Release);
+            }
+        }
+        let _start_guard = StartGuard(&self.live_start_in_progress);
 
         self.buffer_secs_cache.store(0, Ordering::Relaxed);
         let runtime = self.runtime.clone();
@@ -326,6 +343,10 @@ impl EngineController {
             .lock()
             .map(|g| g.is_some())
             .unwrap_or(false)
+    }
+
+    pub fn live_start_in_progress(&self) -> bool {
+        self.live_start_in_progress.load(Ordering::Relaxed)
     }
 
     pub async fn engine_ready(&self) -> bool {
@@ -603,13 +624,18 @@ impl EngineController {
             0
         };
         let diag = self.diagnostics.read().await;
+        let last_error = if diag.last_error.is_empty() {
+            String::new()
+        } else {
+            crate::devices::short_operator_error(&diag.last_error)
+        };
         StatusSnapshot {
             state,
             input_fps: diag.input_fps,
             dropped_frames: diag.dropped_frames,
             buffer_seconds_available: diag.buffer_seconds_available,
             disk_warning: diag.disk_warning,
-            last_error: diag.last_error.clone(),
+            last_error,
             buffer_ready: diag.buffer_seconds_available > 0.0,
             buffer_error: diag.buffer_error,
             mark_timestamp_ns,
@@ -629,13 +655,18 @@ impl EngineController {
         let mut diag = self.diagnostics.write().await;
         diag.current_state = state.as_str().into();
         let seq = self.sequence.fetch_add(1, Ordering::Relaxed);
+        let last_error = if diag.last_error.is_empty() {
+            String::new()
+        } else {
+            crate::devices::short_operator_error(&diag.last_error)
+        };
         let snap = StatusSnapshot {
             state,
             input_fps: diag.input_fps,
             dropped_frames: diag.dropped_frames,
             buffer_seconds_available: diag.buffer_seconds_available,
             disk_warning: diag.disk_warning,
-            last_error: diag.last_error.clone(),
+            last_error,
             buffer_ready: diag.buffer_seconds_available > 0.0,
             buffer_error: diag.buffer_error,
             mark_timestamp_ns,
@@ -666,6 +697,18 @@ impl EngineController {
         let path = self.config.read().await.storage.buffer_path.clone();
         ChunkIndex::new(path.clone(), 20, 1).clean_all();
         Ok(())
+    }
+
+    /// Graceful shutdown: stop capture, tear down GStreamer and UI threads.
+    pub async fn shutdown(&self) {
+        if self.capture_running() {
+            let _ = self.stop().await;
+        }
+        let runtime = self.runtime.clone();
+        tokio::task::spawn_blocking(move || runtime.shutdown())
+            .await
+            .ok();
+        info!("Engine shutdown complete");
     }
 
     async fn on_replay_finished(&self) {

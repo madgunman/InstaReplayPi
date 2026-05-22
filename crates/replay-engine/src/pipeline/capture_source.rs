@@ -13,7 +13,9 @@ pub fn build_source_element(
     match parsed {
         ParsedDevice::Test => test_source(width, height, fps),
         ParsedDevice::Auto | ParsedDevice::Default => {
-            test_source(width, height, fps)
+            panic!(
+                "capture device_id must be resolved before building pipeline (use capture_select::resolve_input)"
+            );
         }
         ParsedDevice::V4l2 { path } => v4l2_source(&path, width, height, fps, pixel_format),
     }

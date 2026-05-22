@@ -106,6 +106,10 @@ impl ProgramOutputHandle {
     pub fn close_window(&self) {
         let _ = self.tx.send(ProgramRequest::CloseWindow);
     }
+
+    pub fn shutdown(&self) {
+        let _ = self.tx.send(ProgramRequest::Shutdown);
+    }
 }
 
 struct UiApp {

@@ -9,6 +9,10 @@ use tracing::debug;
 
 use crate::devices::{parse_device_id, ParsedDevice};
 
+pub const MAX_PROBE_WIDTH: i32 = 3840;
+pub const MAX_PROBE_HEIGHT: i32 = 3840;
+pub const MAX_PROBE_FPS: i32 = 120;
+
 const PREFERRED: &[(u32, u32, u32)] = &[
     (1920, 1080, 60),
     (1920, 1080, 50),
@@ -19,6 +23,10 @@ const PREFERRED: &[(u32, u32, u32)] = &[
     (640, 480, 60),
     (640, 480, 30),
 ];
+
+const PREFERRED_WIDTHS: &[i32] = &[3840, 2560, 1920, 1280, 720, 640];
+const PREFERRED_HEIGHTS: &[i32] = &[2160, 1080, 720, 480];
+const PREFERRED_FPS: &[(i32, i32)] = &[(120, 1), (60, 1), (50, 1), (30, 1), (25, 1), (24, 1)];
 
 pub fn probe_formats(device_id: &str) -> Vec<VideoFormat> {
     if device_id == "test" {
@@ -124,12 +132,19 @@ fn structure_to_formats(s: &gst::StructureRef) -> Vec<VideoFormat> {
     for &w in &widths {
         for &h in &heights {
             for &(num, den) in &fps_list {
-                if w > 0 && h > 0 && num > 0 && den > 0 {
+                if w > 0
+                    && h > 0
+                    && num > 0
+                    && den > 0
+                    && w <= MAX_PROBE_WIDTH
+                    && h <= MAX_PROBE_HEIGHT
+                    && (num / den.max(1)) <= MAX_PROBE_FPS
+                {
                     formats.push(VideoFormat {
-                        width: w as i32,
-                        height: h as i32,
-                        fps_num: num as i32,
-                        fps_den: den as i32,
+                        width: w,
+                        height: h,
+                        fps_num: num,
+                        fps_den: den,
                         pixel_format: pixel_format.clone(),
                     });
                 }
@@ -139,39 +154,69 @@ fn structure_to_formats(s: &gst::StructureRef) -> Vec<VideoFormat> {
     formats
 }
 
-fn int_values(s: &gst::StructureRef, field: &str) -> Vec<i32> {
+pub(crate) fn discrete_int_from_range(min: i32, max: i32, preferred: &[i32]) -> Vec<i32> {
+    if min == max {
+        return vec![min];
+    }
+    let mut vals: Vec<i32> = preferred
+        .iter()
+        .copied()
+        .filter(|&p| p >= min && p <= max)
+        .collect();
+    if vals.is_empty() {
+        vals.push(min);
+    }
+    vals.sort_unstable();
+    vals.dedup();
+    vals
+}
+
+/// Discrete width/height samples from caps — never `range.max()` alone.
+pub(crate) fn int_values(s: &gst::StructureRef, field: &str) -> Vec<i32> {
     if let Ok(v) = s.get::<i32>(field) {
         return vec![v];
     }
     if let Ok(range) = s.get::<gst::IntRange<i32>>(field) {
-        let mut vals = Vec::new();
-        vals.push(range.max());
-        if range.min() != range.max() {
-            vals.push(range.min());
-        }
-        return vals;
+        let preferred = if field == "width" {
+            PREFERRED_WIDTHS
+        } else {
+            PREFERRED_HEIGHTS
+        };
+        return discrete_int_from_range(range.min(), range.max(), preferred);
     }
     Vec::new()
 }
 
-fn framerate_values(s: &gst::StructureRef) -> Vec<(u32, u32)> {
+/// Discrete framerate samples — never `range.max()` alone.
+pub(crate) fn framerate_values(s: &gst::StructureRef) -> Vec<(i32, i32)> {
     if let Ok(f) = s.get::<gst::Fraction>("framerate") {
-        return vec![(f.numer() as u32, f.denom() as u32)];
+        return vec![(f.numer() as i32, f.denom() as i32)];
     }
     if let Ok(range) = s.get::<gst::FractionRange>("framerate") {
-        let mut out = Vec::new();
-        let high = range.max();
-        let low = range.min();
-        out.push((high.numer() as u32, high.denom() as u32));
-        if low.numer() != high.numer() || low.denom() != high.denom() {
-            out.push((low.numer() as u32, low.denom() as u32));
+        let min = range.min();
+        let max = range.max();
+        if min.numer() == max.numer() && min.denom() == max.denom() {
+            return vec![(min.numer() as i32, min.denom() as i32)];
+        }
+        let min_fps = min.numer() as i32 / min.denom().max(1) as i32;
+        let max_fps = max.numer() as i32 / max.denom().max(1) as i32;
+        let mut out: Vec<(i32, i32)> = PREFERRED_FPS
+            .iter()
+            .copied()
+            .filter(|&(n, d)| {
+                let fps = n / d.max(1);
+                fps >= min_fps && fps <= max_fps
+            })
+            .collect();
+        if out.is_empty() {
+            out.push((min.numer() as i32, min.denom() as i32));
         }
         return dedupe_fractions(out);
     }
     vec![(60, 1), (50, 1), (30, 1)]
 }
 
-fn dedupe_fractions(list: Vec<(u32, u32)>) -> Vec<(u32, u32)> {
+fn dedupe_fractions(list: Vec<(i32, i32)>) -> Vec<(i32, i32)> {
     let mut seen = HashSet::new();
     list.into_iter()
         .filter(|f| seen.insert(*f))
@@ -217,4 +262,22 @@ fn filter_and_sort_formats(mut formats: Vec<VideoFormat>) -> Vec<VideoFormat> {
 
     formats.truncate(16);
     formats
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn int_range_wide_does_not_emit_max_only() {
+        let vals = discrete_int_from_range(1, 32768, PREFERRED_WIDTHS);
+        assert!(!vals.contains(&32768), "must not use range.max alone: {vals:?}");
+        assert!(vals.contains(&1920));
+        assert!(vals.iter().all(|&v| v <= MAX_PROBE_WIDTH));
+    }
+
+    #[test]
+    fn discrete_range_emits_single_value() {
+        assert_eq!(discrete_int_from_range(1080, 1080, PREFERRED_HEIGHTS), vec![1080]);
+    }
 }

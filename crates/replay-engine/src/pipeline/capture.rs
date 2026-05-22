@@ -55,6 +55,9 @@ impl CapturePipeline {
         let (width, height) = config.parse_resolution().unwrap_or((1920, 1080));
         let fps = config.input.fps.max(1);
 
+        let encoder = buffer_encoder_element(&config.replay.buffer_encoder);
+        info!(encoder = %encoder, setting = %config.replay.buffer_encoder, "Buffer encoder selected");
+
         let pipeline_desc = build_pipeline_description(
             &config.input.device_id,
             width,
@@ -66,6 +69,7 @@ impl CapturePipeline {
             &buffer_path,
             config.replay.chunk_seconds,
             config.replay.buffer_seconds,
+            &encoder,
         );
 
         info!(pipeline = %pipeline_desc, "Building capture pipeline");
@@ -364,6 +368,7 @@ fn build_pipeline_description(
     buffer_path: &PathBuf,
     chunk_seconds: u32,
     buffer_seconds: u32,
+    encoder: &str,
 ) -> String {
     let location_pattern = buffer_path
         .join("chunk_%05d.mkv")
@@ -375,7 +380,6 @@ fn build_pipeline_description(
     );
     let chunk_ns = chunk_seconds as u64 * 1_000_000_000;
     let max_files = (buffer_seconds / chunk_seconds.max(1)) + 2;
-    let encoder = buffer_encoder_element();
     let output = if headless {
         super::program_sink::headless_output_chain(show_status_overlay)
     } else {
@@ -404,9 +408,36 @@ fn build_pipeline_description(
     )
 }
 
-fn buffer_encoder_element() -> &'static str {
-    // x264enc works headless in CI/dev; vtenc can fail with permission errors without entitlements.
-    "x264enc speed-preset=ultrafast tune=zerolatency key-int-max=60"
+fn buffer_encoder_element(setting: &str) -> String {
+    let s = setting.trim().to_lowercase();
+    match s.as_str() {
+        "x264" => {
+            return "x264enc speed-preset=ultrafast tune=zerolatency key-int-max=60".into();
+        }
+        "vah264" => {
+            return "vah264enc ! h264parse".into();
+        }
+        "auto" => {
+            if cfg!(target_arch = "aarch64") && gst_plugin_available("vah264enc") {
+                return "vah264enc ! h264parse".into();
+            }
+            "x264enc speed-preset=ultrafast tune=zerolatency key-int-max=60".into()
+        }
+        _ => {
+            tracing::warn!(setting = %setting, "Unknown buffer_encoder — using x264");
+            "x264enc speed-preset=ultrafast tune=zerolatency key-int-max=60".into()
+        }
+    }
+}
+
+fn gst_plugin_available(name: &str) -> bool {
+    std::process::Command::new("gst-inspect-1.0")
+        .arg(name)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
 }
 
 fn is_capture_source_error(src_path: &Option<glib::GString>) -> bool {

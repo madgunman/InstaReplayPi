@@ -48,7 +48,7 @@ if pgrep -x replay-engine >/dev/null; then
   sleep 1
 fi
 
-sudo mkdir -p "$OPT_PREFIX"
+sudo mkdir -p /run/instant-replay "$OPT_PREFIX"
 sudo cp -a "$PKG_ROOT"/. "$OPT_PREFIX/"
 sudo chmod +x "$OPT_PREFIX/bin/replay-engine" \
   "$OPT_PREFIX/scripts/"*.sh 2>/dev/null || true
@@ -91,12 +91,15 @@ fi
 
 sudo mkdir -p /etc/systemd/system/replay-engine.service.d
 sudo rm -f /etc/systemd/system/replay-engine.service.d/user.conf
+RUN_UID="$(id -u "$RUN_USER")"
 sudo tee /etc/systemd/system/replay-engine.service.d/override.conf >/dev/null <<EOF
 [Service]
 User=$RUN_USER
 ExecStart=
 ExecStart=$OPT_PREFIX/bin/replay-engine --appliance
 Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=/run/user/$RUN_UID
+Environment=XDG_SESSION_TYPE=x11
 Environment=GST_PLUGIN_PATH=/usr/lib/aarch64-linux-gnu/gstreamer-1.0
 EOF
 
@@ -144,6 +147,14 @@ echo "=============================================="
 
 if systemctl is-active --quiet replay-engine 2>/dev/null; then
   echo "Service: active"
+  sleep 2
+  PROC_COUNT="$(pgrep -c -x replay-engine 2>/dev/null || echo 0)"
+  if [ "$PROC_COUNT" -eq 1 ]; then
+    echo "Process check: exactly one replay-engine (OK)"
+  else
+    echo "WARN: expected 1 replay-engine process, found $PROC_COUNT"
+    pgrep -a -x replay-engine 2>/dev/null || true
+  fi
 else
   echo "Service not active — check: journalctl -u replay-engine -n 40"
 fi

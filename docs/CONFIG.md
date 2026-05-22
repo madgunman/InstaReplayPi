@@ -26,6 +26,25 @@ Legacy JSON (`~/.config/instant-replay/config.json`) is still read if TOML is mi
 | `output` | `display_id` | `0` |
 | `output` | `auto_display` | `true` (HDMI = non-touch monitor) |
 | `output` | `fullscreen` | `true` |
+| `replay` | `buffer_encoder` | `auto` (`auto` \| `x264` \| `vah264`) |
+| `replay` | `buffer_seconds` | `20` |
+| `replay` | `speed` | `0.5` |
+
+## Buffer encoder (Pi CPU)
+
+- **`replay.buffer_encoder = "auto"`** — On aarch64, uses `vah264enc` when GStreamer provides it; otherwise `x264enc`.
+- **`vah264`** — Force Pi hardware encode (lower CPU at 1080p60).
+- **`x264`** — Software encode (CI / fallback).
+
+## Loopback HTTP (acceptance / diagnostics)
+
+- Binds **`127.0.0.1:8080`** when `--test`, `--appliance`, or `--http-api` (not the operator UI).
+- Disable: `INSTANT_REPLAY_HTTP=0`
+- Port: `INSTANT_REPLAY_HTTP_PORT` (default `8080`)
+
+## V4L2 capture tuning
+
+- **`INSTANT_REPLAY_V4L2_IO_MODE`** in `/etc/default/replay-engine`: `dmabuf` (default on Pi), `mmap`, `read`, or `auto`.
 
 ## Plug-and-play capture
 
@@ -37,7 +56,7 @@ Legacy JSON (`~/.config/instant-replay/config.json`) is still read if TOML is mi
 
 Unlock **Setup** on the operator screen:
 
-- **Hold the status banner 3 seconds**, or
+- **Hold 3s to unlock** on the banner (or long-press the banner), or
 - Tap **Unlock setup (PIN)** and enter `operator.setup_pin` (default `0000`).
 
 Then choose **Camera**, **Format**, and **Audience HDMI**, tap **Apply & go live**. Settings are saved to `config.toml`.
@@ -50,6 +69,9 @@ Then choose **Camera**, **Format**, and **Audience HDMI**, tap **Apply & go live
 
 ## systemd
 
+- **Production start:** `sudo systemctl start replay-engine` only — do not run a second `replay-engine` from a desktop launcher.
 - `replay-engine.service` — `ExecStart=/opt/instant-replay/bin/replay-engine --appliance`
-- Requires `DISPLAY=:0` and desktop autologin.
+- Requires `DISPLAY=:0`, `XDG_RUNTIME_DIR`, and desktop autologin.
+- Single-instance lock: `/run/instant-replay/replay-engine.lock`
 - Logs: `journalctl -u replay-engine`
+- List devices on the Pi: `replay-engine --list-devices`

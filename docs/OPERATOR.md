@@ -39,7 +39,7 @@ With two monitors, `output.auto_display = true` (default) routes HDMI automatica
 
 **Setup (technician, before the match):**
 
-1. Hold the **status banner 3 s** or tap **Unlock setup (PIN)** (default PIN `0000` in config).
+1. Hold **Hold 3s to unlock** on the banner (or long-press the banner) or tap **Unlock setup (PIN)** (default PIN `0000` in config).
 2. Pick **Camera** (webcam, BRIO, Cam Link, etc.), **Format**, and **Audience HDMI**.
 3. **Apply & go live** — saves to `/etc/instant-replay/config.toml`.
 4. Tap **Lock setup** before the match so operators only see match buttons.
@@ -53,6 +53,11 @@ With two monitors, `output.auto_display = true` (default) routes HDMI automatica
 | REPLAYING | Playing buffer |
 | NO SIGNAL | Input lost — check HDMI/USB or disk |
 | ERROR | See `last_error` in banner |
+
+## Replay speed
+
+- **Replay Last** and short **Mark → Replay** clips usually play at **0.5×** as configured.
+- If the mark spans **many buffer chunks**, playback may run at **1.0×** (GStreamer concat limitation). Use **Replay Last** for a fixed slow-motion window.
 
 ## Hotkeys (configurable in config.toml)
 
@@ -72,6 +77,7 @@ With two monitors, `output.auto_display = true` (default) routes HDMI automatica
 | Black operator window | GL/EGL missing | `sudo apt install libegl1 libgles2` |
 | Audience HDMI black | Wrong `output.display_id` | Edit config; restart service |
 | Stuck on STARTING | No device / wrong format | Plug in USB capture; unlock Setup → Refresh → Apply; or set `device_id = auto` |
+| Two operator windows / dead touch | Second replay-engine process | `sudo systemctl stop replay-engine`; ensure only one process (`doctor-pi`) |
 | Capture fails | Wrong mode | Setup → pick MJPEG 1080p30 or 720p30 |
 
 Diagnostics: `journalctl -u replay-engine -f` or `./scripts/doctor-pi.sh`
