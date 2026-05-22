@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Instant Replay
+Comment=Open operator touch UI (engine autostarts at boot)
+Icon=video-display
+Exec=/usr/local/bin/start-instant-replay-ui
+Terminal=false
+Categories=AudioVideo;

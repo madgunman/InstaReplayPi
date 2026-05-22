@@ -36,6 +36,12 @@ cp "$ROOT/docs/acceptance/RESULTS-pi.md" "$DIST/share/doc/instant-replay/" 2>/de
 cp "$ROOT/docs/OPERATOR.md" "$DIST/OPERATOR.md"
 cp "$ROOT/docs/CONFIG.md" "$DIST/CONFIG.md"
 cp "$ROOT/scripts/doctor-pi.sh" "$DIST/scripts/"
+cp "$ROOT/scripts/enable-appliance-autostart.sh" "$DIST/scripts/"
+cp "$ROOT/scripts/start-instant-replay-ui.sh" "$DIST/scripts/"
+cp "$ROOT/scripts/install-on-pi.sh" "$DIST/"
+cp "$ROOT/packaging/pi/instant-replay.desktop" "$DIST/share/"
+mkdir -p "$DIST/packaging/pi"
+cp "$ROOT/packaging/pi/instant-replay.desktop" "$DIST/packaging/pi/"
 echo "$VERSION" >"$DIST/VERSION"
 
 cat > "$DIST/bin/instant-replay" <<'LAUNCHER'
@@ -46,35 +52,11 @@ DIR="$(cd "$(dirname "$0")/.." && pwd)"
 source "$DIR/scripts/gstreamer-env.sh"
 exec "$DIR/bin/replay-engine" "$@"
 LAUNCHER
-chmod +x "$DIST/bin/instant-replay" "$DIST/bin/replay-engine" "$DIST/scripts/doctor-pi.sh"
-
-cat > "$DIST/install-on-pi.sh" <<'INSTALL'
-#!/usr/bin/env bash
-set -euo pipefail
-DIR="$(cd "$(dirname "$0")" && pwd)"
-sudo cp "$DIR/bin/replay-engine" /usr/local/bin/
-sudo cp "$DIR/bin/instant-replay" /usr/local/bin/
-sudo mkdir -p /etc/instant-replay /var/lib/instant-replay
-if [ ! -f /etc/instant-replay/config.toml ]; then
-  sudo cp "$DIR/etc/instant-replay/config.toml.example" /etc/instant-replay/config.toml
-fi
-sudo cp "$DIR/systemd/replay-engine.service" /etc/systemd/system/
-sudo cp "$DIR/systemd/instant-replay-kiosk.service" /etc/systemd/system/
-sudo cp "$DIR/replay-engine.default" /etc/default/replay-engine 2>/dev/null || true
-if ! grep -q INSTANT_REPLAY_V4L2_IO_MODE /etc/default/replay-engine 2>/dev/null; then
-  echo 'INSTANT_REPLAY_V4L2_IO_MODE=dmabuf' | sudo tee -a /etc/default/replay-engine >/dev/null
-fi
-sudo mkdir -p /etc/systemd/system/replay-engine.service.d
-echo -e '[Service]\nUser=pi' | sudo tee /etc/systemd/system/replay-engine.service.d/user.conf >/dev/null
-sudo chown pi:pi /var/lib/instant-replay 2>/dev/null || true
-sudo systemctl daemon-reload
-sudo systemctl enable replay-engine
-echo "Touch kiosk (optional): sudo systemctl enable --now instant-replay-kiosk"
-echo "Edit /etc/instant-replay/config.toml (SSD buffer path) then:"
-echo "  sudo systemctl start replay-engine"
-echo "  ./scripts/doctor-pi.sh"
-INSTALL
-chmod +x "$DIST/install-on-pi.sh"
+chmod +x "$DIST/bin/instant-replay" "$DIST/bin/replay-engine" \
+  "$DIST/scripts/doctor-pi.sh" \
+  "$DIST/scripts/enable-appliance-autostart.sh" \
+  "$DIST/scripts/start-instant-replay-ui.sh" \
+  "$DIST/install-on-pi.sh"
 
 cat > "$DIST/README.txt" <<EOF
 Instant Replay ${STAMP} (Raspberry Pi 5) version ${VERSION}
@@ -88,6 +70,9 @@ Quick install on Pi:
   ./install-on-pi.sh
 
 Or from GitHub: scripts/install-from-github.sh --release
+
+Autostart (Option B): included via install-on-pi.sh
+  Set Desktop Autologin for your user, then reboot.
 
 Mount USB3 SSD at /var/lib/instant-replay for buffer storage.
 EOF

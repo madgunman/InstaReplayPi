@@ -67,8 +67,8 @@ install_release() {
     echo "Tarball layout unexpected" >&2
     exit 1
   fi
-  log "Running install-on-pi.sh"
-  (cd "$dir" && ./install-on-pi.sh)
+  log "Running install-on-pi.sh (with autostart)"
+  (cd "$dir" && ./install-on-pi.sh "$(logname 2>/dev/null || echo "${USER:-pi}")")
   rm -rf "$tmp"
 }
 
@@ -88,7 +88,7 @@ install_build() {
   (cd "$INSTALL_DIR" && ./scripts/package-pi.sh)
   local dir
   dir="$(find "$INSTALL_DIR/dist" -maxdepth 1 -type d -name 'InstantReplay-*-pi5-aarch64' | head -1)"
-  (cd "$dir" && ./install-on-pi.sh)
+  (cd "$dir" && ./install-on-pi.sh "$(logname 2>/dev/null || echo "${USER:-pi}")")
 }
 
 case "$MODE" in
@@ -98,12 +98,13 @@ esac
 
 echo ""
 echo "Next steps:"
-echo "  sudo nano /etc/instant-replay/config.toml"
-echo "  sudo systemctl start replay-engine"
-echo "  sudo systemctl enable --now instant-replay-kiosk   # optional touch UI"
+echo "  1. Edit config: sudo nano /etc/instant-replay/config.toml"
+echo "  2. Raspberry Pi OS → Desktop Autologin → your user (e.g. admin)"
+echo "  3. sudo reboot"
+echo ""
+echo "  Re-run autostart only: enable-instant-replay-autostart [username]"
+echo "  Manual UI shortcut: start-instant-replay-ui"
 if [ -x "$INSTALL_DIR/scripts/doctor-pi.sh" ]; then
-  echo "  $INSTALL_DIR/scripts/doctor-pi.sh"
-else
-  echo "  git clone $REPO && ./scripts/doctor-pi.sh"
+  echo "  Health: $INSTALL_DIR/scripts/doctor-pi.sh"
 fi
 echo "  Touch UI: http://127.0.0.1:8080"

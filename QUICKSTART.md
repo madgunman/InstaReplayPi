@@ -10,8 +10,8 @@ Full GitHub install paths: [docs/GITHUB_PI.md](docs/GITHUB_PI.md)
 curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-from-github.sh -o /tmp/install-ir.sh
 chmod +x /tmp/install-ir.sh
 /tmp/install-ir.sh --release
-sudo systemctl start replay-engine
-sudo systemctl enable --now instant-replay-kiosk   # optional 7" touch
+# Autostart is configured by install — set Desktop Autologin, then:
+sudo reboot
 ```
 
 ## Clone and build on the Pi
