@@ -7,6 +7,7 @@ use replay_engine::controller::EngineController;
 use replay_engine::hotkeys;
 use replay_engine::http;
 use replay_engine::logging;
+use replay_engine::program_output::should_use_headless;
 use tracing::info;
 
 #[derive(Parser, Debug)]
@@ -65,7 +66,11 @@ async fn main() -> anyhow::Result<()> {
     });
 
     let autostart = (args.appliance || config.appliance.enabled) && config.appliance.autostart_live;
-    if autostart {
+    if autostart && should_use_headless(args.test) {
+        tracing::warn!(
+            "Skipping live autostart: no DISPLAY (set Environment=DISPLAY=:0 in replay-engine.service and enable desktop autologin)"
+        );
+    } else if autostart {
         info!("Appliance mode: autostart live");
         {
             let (w, h) = config.parse_resolution().unwrap_or((1920, 1080));

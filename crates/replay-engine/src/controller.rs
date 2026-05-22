@@ -12,6 +12,7 @@ use tokio::sync::{broadcast, RwLock};
 use tracing::{info, warn};
 
 use crate::chunk_index_actor::ChunkIndexHandle;
+use crate::program_output::should_use_headless;
 use crate::runtime::GstreamerRuntime;
 use crate::storage_monitor::StorageMonitor;
 use crate::video_stats::VideoStats;
@@ -80,7 +81,7 @@ impl EngineController {
             test_mode,
             config: Arc::new(RwLock::new(config)),
             fsm: Arc::new(RwLock::new(ReplayFsm::new())),
-            runtime: Arc::new(GstreamerRuntime::spawn(test_mode)),
+            runtime: Arc::new(GstreamerRuntime::spawn(should_use_headless(test_mode))),
             chunk_index: Arc::new(Mutex::new(None)),
             mark_timestamp_ns_cache: Arc::new(AtomicI64::new(0)),
             video_stats: Arc::new(Mutex::new(None)),

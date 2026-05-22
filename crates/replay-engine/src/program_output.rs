@@ -30,8 +30,26 @@ pub struct ProgramOutputHandle {
     _thread: std::sync::Arc<JoinHandle<()>>,
 }
 
+/// Headless program output when there is no display session (e.g. systemd before graphical login).
+pub fn should_use_headless(test_mode: bool) -> bool {
+    if test_mode {
+        return true;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        match std::env::var("DISPLAY") {
+            Ok(d) if !d.trim().is_empty() => false,
+            _ => true,
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        false
+    }
+}
+
 impl ProgramOutputHandle {
-    /// No winit window — for `--test`, CI, and `mvp_accept-full.sh` on macOS/Linux headless.
+    /// No winit window — for `--test`, CI, and headless systemd boot.
     pub fn headless() -> Self {
         let (tx, rx) = mpsc::channel();
         let thread_tx = tx.clone();
@@ -300,8 +318,19 @@ fn run_headless_loop(rx: Receiver<ProgramRequest>) {
     }
 }
 
+fn build_program_event_loop() -> Result<EventLoop<()>, winit::error::EventLoopError> {
+    let mut builder = EventLoop::builder();
+    #[cfg(target_os = "linux")]
+    {
+        use winit::platform::wayland::EventLoopBuilderExtWayland;
+        use winit::platform::x11::EventLoopBuilderExtX11;
+        builder.with_any_thread(true);
+    }
+    builder.build()
+}
+
 fn run_program_loop(rx: Receiver<ProgramRequest>) {
-    let event_loop = match EventLoop::builder().build() {
+    let event_loop = match build_program_event_loop() {
         Ok(el) => el,
         Err(e) => {
             warn!(error = %e, "Failed to build winit event loop for program output");

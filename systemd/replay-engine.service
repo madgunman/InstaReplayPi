@@ -1,11 +1,12 @@
 [Unit]
 Description=Instant Replay Engine
 After=network.target graphical.target
-Wants=network-online.target
+Wants=network-online.target graphical.target
 
 [Service]
 Type=simple
 ExecStart=/opt/instant-replay/bin/replay-engine --appliance
+Environment=DISPLAY=:0
 Environment=GST_PLUGIN_PATH=/usr/lib/aarch64-linux-gnu/gstreamer-1.0
 Restart=always
 RestartSec=3
@@ -15,4 +16,4 @@ StandardOutput=journal
 StandardError=journal
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=graphical.target

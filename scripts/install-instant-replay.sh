@@ -4,7 +4,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
 #
 # Env:
-#   INSTANT_REPLAY_TAG=v0.1.0   — GitHub release tag (default: latest)
+#   INSTANT_REPLAY_TAG=v0.1.1   — GitHub release tag (default: latest; use v0.1.1+ on Pi)
 #   INSTANT_REPLAY_USER=admin   — service user (default: logname)
 set -euo pipefail
 

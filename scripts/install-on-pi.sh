@@ -37,12 +37,23 @@ if [ -x "$OPT_PREFIX/bin/instant-replay" ]; then
 fi
 
 sudo mkdir -p /etc/instant-replay /var/lib/instant-replay /usr/share/instant-replay
-if [ ! -f /etc/instant-replay/config.toml ]; then
-  if [ -f "$OPT_PREFIX/etc/instant-replay/config.toml.example" ]; then
-    sudo cp "$OPT_PREFIX/etc/instant-replay/config.toml.example" /etc/instant-replay/config.toml
+CONFIG_EX="$OPT_PREFIX/etc/instant-replay/config.toml.example"
+if [ -f "$CONFIG_EX" ]; then
+  sudo cp -f "$CONFIG_EX" /usr/share/instant-replay/config.toml.example
+  if [ ! -f /etc/instant-replay/config.toml ]; then
+    sudo cp "$CONFIG_EX" /etc/instant-replay/config.toml
+  elif ! grep -q '^\[input\]' /etc/instant-replay/config.toml 2>/dev/null; then
+    echo "==> Replacing incomplete /etc/instant-replay/config.toml (backup: config.toml.bak)"
+    sudo cp -a /etc/instant-replay/config.toml /etc/instant-replay/config.toml.bak
+    sudo cp "$CONFIG_EX" /etc/instant-replay/config.toml
   fi
 fi
-sudo cp -f "$OPT_PREFIX/etc/instant-replay/config.toml.example" /usr/share/instant-replay/ 2>/dev/null || true
+sudo chown root:"$RUN_USER" /etc/instant-replay 2>/dev/null || true
+sudo chmod 775 /etc/instant-replay 2>/dev/null || true
+if [ -f /etc/instant-replay/config.toml ]; then
+  sudo chown root:"$RUN_USER" /etc/instant-replay/config.toml
+  sudo chmod 664 /etc/instant-replay/config.toml
+fi
 
 sudo cp "$OPT_PREFIX/systemd/replay-engine.service" /etc/systemd/system/
 sudo cp "$OPT_PREFIX/systemd/instant-replay-kiosk.service" /etc/systemd/system/
@@ -62,6 +73,7 @@ sudo tee /etc/systemd/system/replay-engine.service.d/override.conf >/dev/null <<
 User=$RUN_USER
 ExecStart=
 ExecStart=$OPT_PREFIX/bin/replay-engine --appliance
+Environment=DISPLAY=:0
 Environment=GST_PLUGIN_PATH=/usr/lib/aarch64-linux-gnu/gstreamer-1.0
 EOF
 

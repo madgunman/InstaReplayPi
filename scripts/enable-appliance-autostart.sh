@@ -26,6 +26,7 @@ sudo tee /etc/systemd/system/replay-engine.service.d/override.conf >/dev/null <<
 User=$RUN_USER
 ExecStart=
 ExecStart=$ENGINE_BIN --appliance
+Environment=DISPLAY=:0
 Environment=GST_PLUGIN_PATH=/usr/lib/aarch64-linux-gnu/gstreamer-1.0
 EOF
 
