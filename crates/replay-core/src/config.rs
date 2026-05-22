@@ -11,14 +11,17 @@ pub struct AppConfig {
     pub storage: StorageConfig,
     pub hotkeys: HotkeyConfig,
     pub appliance: ApplianceConfig,
-    pub http: HttpConfig,
+    pub operator: OperatorConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
-pub struct HttpConfig {
+pub struct OperatorConfig {
     pub enabled: bool,
-    pub bind_addr: String,
+    pub display_id: u32,
+    pub width: u32,
+    pub height: u32,
+    pub fullscreen: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,16 +84,19 @@ impl Default for AppConfig {
             storage: StorageConfig::default(),
             hotkeys: HotkeyConfig::default(),
             appliance: ApplianceConfig::default(),
-            http: HttpConfig::default(),
+            operator: OperatorConfig::default(),
         }
     }
 }
 
-impl Default for HttpConfig {
+impl Default for OperatorConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            bind_addr: "127.0.0.1:8080".to_string(),
+            display_id: 0,
+            width: 800,
+            height: 480,
+            fullscreen: false,
         }
     }
 }

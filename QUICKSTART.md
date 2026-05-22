@@ -44,7 +44,7 @@ sudo cp config/default.toml /etc/instant-replay/config.toml
 ./target/release/replay-engine --appliance
 ```
 
-Touch UI: **http://127.0.0.1:8080**
+Native operator window opens on the Pi touch display (no browser).
 
 Test pattern (no camera):
 

@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=Instant Replay
-Comment=Open operator touch UI (engine autostarts at boot)
+Comment=Health check (operator UI starts with replay-engine at boot)
 Icon=video-display
-Exec=/usr/local/bin/start-instant-replay-ui
-Terminal=false
+Exec=/usr/local/bin/doctor-pi
+Terminal=true
 Categories=AudioVideo;

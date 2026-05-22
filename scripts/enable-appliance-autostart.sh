@@ -30,19 +30,10 @@ Environment=DISPLAY=:0
 Environment=GST_PLUGIN_PATH=/usr/lib/aarch64-linux-gnu/gstreamer-1.0
 EOF
 
-sudo mkdir -p /etc/systemd/system/instant-replay-kiosk.service.d
-sudo rm -f /etc/systemd/system/instant-replay-kiosk.service.d/user.conf
-sudo tee /etc/systemd/system/instant-replay-kiosk.service.d/override.conf >/dev/null <<EOF
-[Service]
-User=$RUN_USER
-Environment=DISPLAY=:0
-EOF
-
+sudo systemctl disable instant-replay-kiosk.service 2>/dev/null || true
 sudo chown -R "$RUN_USER:$RUN_USER" /var/lib/instant-replay
 sudo systemctl daemon-reload
-sudo systemctl enable replay-engine instant-replay-kiosk
+sudo systemctl enable replay-engine
 sudo systemctl restart replay-engine
-sleep 2
-sudo systemctl restart instant-replay-kiosk 2>/dev/null || true
 
-echo "Autostart enabled for $RUN_USER. Touch UI: http://127.0.0.1:8080"
+echo "Autostart enabled for $RUN_USER (native operator UI in replay-engine)."

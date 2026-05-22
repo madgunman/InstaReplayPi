@@ -58,15 +58,24 @@ pub struct GstreamerRuntime {
 }
 
 impl GstreamerRuntime {
-    pub fn spawn(headless: bool) -> Self {
-        let program = if headless {
-            ProgramOutputHandle::headless()
-        } else {
-            ProgramOutputHandle::spawn()
-        };
+    pub fn with_program(program: ProgramOutputHandle) -> Self {
+        let headless = false;
         let (tx, rx) = mpsc::channel();
         let program_for_thread = program.clone();
-        let headless = headless;
+        let handle = thread::Builder::new()
+            .name("gstreamer-runtime".into())
+            .spawn(move || run_loop(rx, program_for_thread, headless))
+            .expect("spawn gstreamer runtime");
+        Self {
+            tx,
+            _handle: handle,
+            program,
+        }
+    }
+
+    pub fn spawn(headless: bool, program: ProgramOutputHandle) -> Self {
+        let (tx, rx) = mpsc::channel();
+        let program_for_thread = program.clone();
         let handle = thread::Builder::new()
             .name("gstreamer-runtime".into())
             .spawn(move || run_loop(rx, program_for_thread, headless))

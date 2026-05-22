@@ -8,8 +8,8 @@ flowchart TB
   daemon[replay-engine]
   gst[GStreamer v4l2 + tee + splitmux]
   ctrl[EngineController + FSM]
-  http[HTTP 127.0.0.1:8080]
-  touch[Chromium kiosk / assets/touch]
+  uiThread[ui_runtime single winit loop]
+  opWin[native egui operator window]
   kb[USB keyboard hotkeys]
   hdmi[Audience HDMI program window]
   ssd[USB3 SSD buffer]
@@ -21,18 +21,19 @@ flowchart TB
   gst --> hdmi
   gst --> ssd
   kb --> ctrl
-  touch --> http
-  http --> ctrl
-  daemon --> http
+  opWin --> ctrl
+  daemon --> uiThread
+  uiThread --> opWin
+  uiThread --> hdmi
 ```
 
-One process (`replay-engine`). No gRPC, no Flutter, no second video process.
+One process (`replay-engine`). No gRPC, no Flutter, no browser.
 
 ## Control plane
 
 | Client | Path |
 |--------|------|
-| Touch UI | Static `assets/touch/` + REST `/api/*` |
+| Native operator UI | egui on Pi touch → `ControlApi` |
 | Keyboard | `global-hotkey` → `ControlApi` |
 | GPIO (v1.1) | `gpio.rs` stub → `ControlApi` |
 
@@ -42,7 +43,7 @@ One process (`replay-engine`). No gRPC, no Flutter, no second video process.
 
 - **Live + buffer:** `v4l2src` (or `videotestsrc` with `--test`) → `tee` → program sink + `splitmuxsink` MPEG-TS chunks (~1 s)
 - **Replay:** separate pipeline; `playbin` at 0.5× (concat for multi-segment)
-- **Threading:** GStreamer on dedicated runtime thread
+- **Threading:** GStreamer on dedicated runtime thread; UI on dedicated winit thread
 
 ## State machine (`replay-core`)
 

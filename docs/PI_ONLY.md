@@ -8,7 +8,7 @@ Instant Replay is a **Raspberry Pi 5 appliance** for table-tennis venues. This r
 - UVC / Cam Link capture via **V4L2**
 - Rolling buffer on **USB3 SSD** (`/var/lib/instant-replay`)
 - Live + replay on **audience HDMI** (fullscreen)
-- Operator control: **Pi touch display** (local web UI) + **USB keyboard** hotkeys
+- Operator control: **native egui UI** on Pi touch + **USB keyboard** hotkeys
 - **systemd** autostart (`--appliance`)
 
 ## Out of scope (non-goals)

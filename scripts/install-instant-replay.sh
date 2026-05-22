@@ -4,7 +4,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
 #
 # Env:
-#   INSTANT_REPLAY_TAG=v0.1.2   — GitHub release tag (default: latest; use v0.1.2+ on Pi)
+#   INSTANT_REPLAY_TAG=v0.2.0   — GitHub release tag (default: latest)
 #   INSTANT_REPLAY_USER=admin   — service user (default: logname)
 set -euo pipefail
 
@@ -25,13 +25,13 @@ if [ "$(id -u)" -eq 0 ]; then
   exit 1
 fi
 
-log "System packages (GStreamer, Chromium)..."
+log "System packages (GStreamer, OpenGL/EGL for native UI)..."
 sudo apt-get update -qq
 sudo apt-get install -y \
   curl ca-certificates \
-  chromium \
   gstreamer1.0-plugins-good gstreamer1.0-tools \
   libgstreamer1.0-0 libgstreamer-plugins-base1.0-0 \
+  libegl1 libgles2 \
   v4l-utils
 
 api="https://api.github.com/repos/${REPO_SLUG}/releases"
@@ -43,7 +43,7 @@ fi
 
 log "GitHub release..."
 json="$(curl -fsSL "$api")" || {
-  echo "No release found. Try: INSTANT_REPLAY_TAG=v0.1.0" >&2
+  echo "No release found. Try: INSTANT_REPLAY_TAG=v0.2.0" >&2
   exit 1
 }
 
@@ -79,16 +79,16 @@ cat <<EOF
 ==============================================
  Instant Replay is installed.
 
-  Touch UI:  http://127.0.0.1:8080
-  Config:    sudo nano /etc/instant-replay/config.toml
-  Status:    systemctl status replay-engine
+  Operator: native window on Pi touch (starts with replay-engine)
+  Config:   sudo nano /etc/instant-replay/config.toml
+  Status:   systemctl status replay-engine
 
   One-time: Desktop Autologin → $RUN_USER, then sudo reboot
 ==============================================
 EOF
 
-if curl -sfS --max-time 5 http://127.0.0.1:8080/api/health 2>/dev/null; then
-  echo "Health check: OK"
+if systemctl is-active --quiet replay-engine 2>/dev/null; then
+  echo "Service: active"
 else
-  echo "Health check: waiting — run: journalctl -u replay-engine -n 30"
+  echo "Service: check journalctl -u replay-engine -n 30"
 fi

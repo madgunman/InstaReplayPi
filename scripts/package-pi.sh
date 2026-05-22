@@ -18,15 +18,13 @@ echo "==> Building replay-engine (release)"
 (cd "$ROOT" && cargo build -p replay-engine --release)
 
 rm -rf "$DIST"
-mkdir -p "$DIST/bin" "$DIST/scripts" "$DIST/assets/touch" "$DIST/systemd" \
+mkdir -p "$DIST/bin" "$DIST/scripts" "$DIST/systemd" \
   "$DIST/share/doc/instant-replay" "$DIST/etc/instant-replay"
 
 cp "$ROOT/target/release/replay-engine" "$DIST/bin/"
 cp "$ROOT/packaging/lib/gstreamer-env.sh" "$DIST/scripts/"
 cp "$ROOT/systemd/replay-engine.service" "$DIST/systemd/"
-cp "$ROOT/systemd/instant-replay-kiosk.service" "$DIST/systemd/"
 cp "$ROOT/config/default.toml" "$DIST/etc/instant-replay/config.toml.example"
-cp -R "$ROOT/assets/touch/." "$DIST/assets/touch/"
 cp "$ROOT/packaging/linux/replay-engine.default" "$DIST/replay-engine.default" 2>/dev/null || true
 cp "$ROOT/docs/PI_DEPLOYMENT.md" "$DIST/share/doc/instant-replay/OPERATOR-PI.md"
 cp "$ROOT/docs/OPERATOR.md" "$DIST/share/doc/instant-replay/"
@@ -37,7 +35,6 @@ cp "$ROOT/docs/OPERATOR.md" "$DIST/OPERATOR.md"
 cp "$ROOT/docs/CONFIG.md" "$DIST/CONFIG.md"
 cp "$ROOT/scripts/doctor-pi.sh" "$DIST/scripts/"
 cp "$ROOT/scripts/enable-appliance-autostart.sh" "$DIST/scripts/"
-cp "$ROOT/scripts/start-instant-replay-ui.sh" "$DIST/scripts/"
 cp "$ROOT/scripts/install-instant-replay.sh" "$DIST/scripts/"
 cp "$ROOT/scripts/install-on-pi.sh" "$DIST/"
 cp "$ROOT/packaging/pi/instant-replay.desktop" "$DIST/share/"
@@ -56,7 +53,6 @@ LAUNCHER
 chmod +x "$DIST/bin/instant-replay" "$DIST/bin/replay-engine" \
   "$DIST/scripts/doctor-pi.sh" \
   "$DIST/scripts/enable-appliance-autostart.sh" \
-  "$DIST/scripts/start-instant-replay-ui.sh" \
   "$DIST/install-on-pi.sh"
 
 cat > "$DIST/README.txt" <<EOF
@@ -65,16 +61,14 @@ Instant Replay ${STAMP} (Raspberry Pi 5) version ${VERSION}
 GitHub: https://github.com/madgunman/InstaReplayPi
 
 Single daemon: replay-engine --appliance
-Touch UI: http://127.0.0.1:8080 (enable instant-replay-kiosk.service for Chromium fullscreen)
+Native operator UI on Pi touch display (egui, no browser).
 
 One-command install on Pi:
   curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
 
 Or from tarball: ./install-on-pi.sh [username]
 
-Autostart (Option B): included via install-on-pi.sh
-  Set Desktop Autologin for your user, then reboot.
-
+Set Desktop Autologin for your user, then reboot.
 Mount USB3 SSD at /var/lib/instant-replay for buffer storage.
 EOF
 

@@ -33,6 +33,9 @@ clear_mark = "C"
 enabled = true
 autostart_live = true
 
-[http]
+[operator]
 enabled = true
-bind_addr = "127.0.0.1:8080"
+display_id = 0
+width = 800
+height = 480
+fullscreen = false

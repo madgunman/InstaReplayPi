@@ -10,30 +10,28 @@ curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/script
 
 This will:
 
-1. Install apt packages (GStreamer, Chromium)
+1. Install apt packages (GStreamer, EGL/GLES for native UI)
 2. Download the latest **release** binary (`pi5-aarch64` tarball)
 3. Install to `/opt/instant-replay`
-4. Fix systemd (`User=admin`, correct binary path)
-5. Enable engine + touch kiosk at boot
+4. Enable `replay-engine` at boot (native operator window + HDMI)
 
 Then set **Desktop Autologin** → your user → `sudo reboot`.
 
 ### Options
 
 ```bash
-INSTANT_REPLAY_USER=admin INSTANT_REPLAY_TAG=v0.1.0 \
+INSTANT_REPLAY_USER=admin INSTANT_REPLAY_TAG=v0.2.0 \
   curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
 ```
 
-Use **`v0.1.2`** or newer (fixes crash loop / `status=11/SEGV` on boot). **Do not use v0.1.1** — that tag was built before the winit fix was merged.
-
-## Fix existing broken install (crash loop / no HTTP)
+## Fix existing broken install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
+INSTANT_REPLAY_USER=admin INSTANT_REPLAY_TAG=v0.2.0 \
+  curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/install-instant-replay.sh | bash
 ```
 
-Or only re-apply systemd (needs **v0.1.2+** binary for the winit fix):
+Or only re-apply systemd:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/madgunman/InstaReplayPi/main/scripts/enable-appliance-autostart.sh -o /tmp/e.sh
@@ -41,15 +39,15 @@ chmod +x /tmp/e.sh
 sudo /tmp/e.sh admin
 ```
 
-**Requirements:** Desktop **Autologin** for your user (so `DISPLAY=:0` exists). The engine unit starts after `graphical.target`.
-
-If `journalctl` shows `winit` / “event loop outside of the main thread”, upgrade to **v0.1.2+** and re-run the installer.
+**Requirements:** Desktop **Autologin** for your user (so `DISPLAY=:0` exists). Engine starts after `graphical.target`.
 
 ## After install
 
 ```bash
 sudo nano /etc/instant-replay/config.toml
 systemctl status replay-engine
-curl -s http://127.0.0.1:8080/api/health
+journalctl -u replay-engine -f
 doctor-pi
 ```
+
+Look for `Native operator UI running` in the journal. The operator window opens on the Pi touch display automatically.

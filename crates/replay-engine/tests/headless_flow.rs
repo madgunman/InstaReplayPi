@@ -1,12 +1,7 @@
-//! Full engine gRPC flow (StartLive → buffer → Replay → ReturnLive).
-//! Run locally: `cargo test -p replay-engine --test headless_flow -- --ignored --nocapture`
-//! CI runs the same path via `scripts/mvp_accept-full.sh` (xvfb + HTTP curl).
+//! Headless engine smoke is run via `scripts/mvp_accept-full.sh` (--test --no-ui).
 
 #[test]
-#[ignore = "requires GStreamer, display/xvfb; use scripts/mvp_accept-full.sh"]
-fn headless_mvp_flow_documented() {
-    // Guard test documents the integration entry point for developers.
-    // Automated coverage: .github/workflows/acceptance.yml → mvp_accept-full.sh
-    assert!(std::path::Path::new("scripts/mvp_accept-full.sh").exists());
-    assert!(std::path::Path::new("scripts/mvp_accept.sh").exists());
+fn mvp_accept_scripts_exist() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    assert!(root.join("scripts/mvp_accept-full.sh").exists());
 }

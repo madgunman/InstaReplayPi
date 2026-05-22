@@ -20,24 +20,23 @@ Legacy JSON (`~/.config/instant-replay/config.json`) is still read if TOML is mi
 | `storage` | `buffer_path` | `/var/lib/instant-replay/buffer` |
 | `appliance` | `enabled` | `true` |
 | `appliance` | `autostart_live` | `true` |
-| `http` | `enabled` | `true` |
-| `http` | `bind_addr` | `127.0.0.1:8080` |
+| `operator` | `enabled` | `true` |
+| `operator` | `display_id` | `0` (Pi touch monitor index) |
+| `operator` | `width` / `height` | `800` / `480` |
+| `output` | `display_id` | `0` (audience HDMI monitor index) |
 | `output` | `fullscreen` | `true` |
 
-## HTTP API (localhost)
+## Displays
 
-| Method | Path | Action |
-|--------|------|--------|
-| GET | `/api/health` | Reachability + `ready` |
-| GET | `/api/status` | Operator status JSON |
-| GET | `/api/diagnostics` | FPS, state, buffer seconds |
-| POST | `/api/mark`, `/api/replay`, … | Control actions |
+- **`output.display_id`** — audience HDMI program window (fullscreen).
+- **`operator.display_id`** — Pi official touch (native egui window).
 
-Touch UI and `scripts/mvp_accept.sh` use these endpoints.
+If both are on the same monitor, set different indices after checking logs at boot (`list_displays` is logged when live starts).
 
 ## systemd
 
-- `replay-engine.service` — `ExecStart=/usr/bin/instant-replay --appliance`
+- `replay-engine.service` — `ExecStart=/opt/instant-replay/bin/replay-engine --appliance`
+- Requires `DISPLAY=:0` and desktop autologin for operator + HDMI windows.
 - Environment: `/etc/default/replay-engine` (`INSTANT_REPLAY_V4L2_IO_MODE=dmabuf` on Pi)
 - Logs: `journalctl -u replay-engine`
 

@@ -9,7 +9,6 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = { workspace = true }
-axum = { workspace = true }
 chrono = { workspace = true }
 clap = { version = "4.5", features = ["derive", "env"] }
 fs2 = "0.4"
@@ -24,8 +23,13 @@ raw-window-handle = "0.6"
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
-tower-http = { workspace = true }
 tracing = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
 winit = { version = "0.30", features = ["rwh_06"] }
+egui = "0.29"
+egui-winit = { version = "0.29", default-features = false, features = ["clipboard", "links", "wayland", "x11"] }
+egui_glow = { version = "0.29", default-features = false, features = ["winit"] }
+glow = "0.14"
+glutin = { version = "0.32", default-features = false, features = ["egl", "glx", "wayland", "x11"] }
+glutin-winit = { version = "0.5", default-features = false, features = ["egl", "glx", "wayland", "x11"] }

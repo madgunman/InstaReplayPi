@@ -70,8 +70,29 @@ pub struct EngineEventReceivers {
     pub signal_restored: mpsc::Receiver<()>,
 }
 
+impl StatusSnapshot {
+    pub fn default_offline() -> Self {
+        Self {
+            state: ReplayState::Starting,
+            input_fps: 0.0,
+            dropped_frames: 0,
+            buffer_seconds_available: 0.0,
+            disk_warning: false,
+            last_error: String::new(),
+            buffer_ready: false,
+            buffer_error: false,
+            mark_timestamp_ns: 0,
+            sequence: 0,
+        }
+    }
+}
+
 impl EngineController {
-    pub fn new(config: AppConfig, test_mode: bool) -> (Self, EngineEventReceivers) {
+    pub fn new(
+        config: AppConfig,
+        test_mode: bool,
+        program: crate::program_output::ProgramOutputHandle,
+    ) -> (Self, EngineEventReceivers) {
         let (status_tx, _) = broadcast::channel(64);
         let (replay_finished_tx, replay_finished_rx) = mpsc::channel();
         let (signal_lost_tx, signal_lost_rx) = mpsc::channel();
@@ -81,7 +102,10 @@ impl EngineController {
             test_mode,
             config: Arc::new(RwLock::new(config)),
             fsm: Arc::new(RwLock::new(ReplayFsm::new())),
-            runtime: Arc::new(GstreamerRuntime::spawn(should_use_headless(test_mode))),
+            runtime: Arc::new(GstreamerRuntime::spawn(
+                should_use_headless(test_mode),
+                program,
+            )),
             chunk_index: Arc::new(Mutex::new(None)),
             mark_timestamp_ns_cache: Arc::new(AtomicI64::new(0)),
             video_stats: Arc::new(Mutex::new(None)),

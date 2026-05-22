@@ -61,7 +61,7 @@ jobs:
           body: |
             ## Instant Replay ${{ github.ref_name }} (Raspberry Pi 5)
 
-            Pi OS 64-bit appliance: `replay-engine` + touch UI on `http://127.0.0.1:8080`.
+            Pi OS 64-bit appliance: `replay-engine` + native egui operator UI on Pi touch.
 
             | Artifact | Platform |
             |----------|----------|

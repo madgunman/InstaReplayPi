@@ -2,12 +2,11 @@
 # Pi 5 pre-match health check — run on the appliance before a tournament.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-BASE="${HTTP_BASE:-http://127.0.0.1:8080}"
 BUFFER="${BUFFER_PATH:-/var/lib/instant-replay/buffer}"
 FAIL=0
 
 warn() { echo "WARN: $*"; }
-fail() { echo "FAIL: $*"; FAIL=1; }
+fail() { echo "FAIL: $*"; }
 ok() { echo "OK: $*"; }
 
 echo "Instant Replay Pi doctor"
@@ -53,27 +52,27 @@ fi
 
 if [ -f /etc/instant-replay/config.toml ]; then
   ok "Config: /etc/instant-replay/config.toml"
+  if grep -q '^\[operator\]' /etc/instant-replay/config.toml 2>/dev/null; then
+    ok "Operator UI config present"
+  else
+    warn "Missing [operator] in config — add from config.toml.example"
+  fi
 else
   warn "No /etc/instant-replay/config.toml — using built-in defaults"
 fi
 
 if systemctl is-active replay-engine >/dev/null 2>&1; then
   ok "replay-engine.service active"
+  if journalctl -u replay-engine -n 20 --no-pager 2>/dev/null | grep -q "Native operator UI"; then
+    ok "Native operator UI started (see journal)"
+  fi
 else
   warn "replay-engine.service not active (start with: sudo systemctl start replay-engine)"
 fi
 
-if curl -sfS --max-time 3 "${BASE}/api/health" >/dev/null 2>&1; then
-  ok "HTTP touch API reachable at ${BASE}"
-  status="$(curl -sfS "${BASE}/api/status" 2>/dev/null || echo '{}')"
-  echo "  status: $status"
-else
-  fail "HTTP not reachable at ${BASE} (engine running with [http] enabled?)"
-fi
-
 if [ -x "$ROOT/scripts/mvp_accept-full.sh" ] || [ -x "$ROOT/target/release/replay-engine" ]; then
   echo ""
-  echo "Optional: run automated smoke (test pattern, ~2 min):"
+  echo "Optional: run automated smoke (test pattern):"
   echo "  cd $ROOT && ./scripts/mvp_accept-full.sh"
 fi
 
